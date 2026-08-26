@@ -401,6 +401,7 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
         tTps2hcs08Ctx *pCtx = &exVioDbTps2hcs08Ctx[devIdx];
 
         /* --- 5h FAULT_MASK : initial diagnostic only -> mask after setup --- */
+        /* EDIT::Init 이슈 pdf 74p 기준 pCtx->faultMask.word = 0xFF80u 로 수정 예상 */
         pCtx->faultMask.word                      = 0x0000u;
         pCtx->faultMask.bits.MASK_SHRT_VBB        = 1u;
         pCtx->faultMask.bits.MASK_OL_OFF          = 1u;
