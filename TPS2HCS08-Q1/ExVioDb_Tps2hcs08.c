@@ -401,8 +401,8 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
         tTps2hcs08Ctx *pCtx = &exVioDbTps2hcs08Ctx[devIdx];
 
         /* --- 5h FAULT_MASK : initial diagnostic only -> mask after setup --- */
-        /* EDIT::Init 이슈 pdf 74p 기준 pCtx->faultMask.word = 0xFF80u 로 수정 예상 */
-        pCtx->faultMask.word                      = 0x0000u;
+        /* EDIT::Init 이슈 pdf 74p 기준 pCtx->faultMask.word = 0xFF80u 수정      */
+        pCtx->faultMask.word                      = 0xFF80u;
         pCtx->faultMask.bits.MASK_SHRT_VBB        = 1u;
         pCtx->faultMask.bits.MASK_OL_OFF          = 1u;
         pCtx->faultMask.bits.MASK_SPI_ERR         = 0u;
@@ -410,10 +410,12 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
         pCtx->faultMask.bits.MASK_VBB_UVLO        = 0u;
 
         /* --- 7h SW_STATE : all output OFF --------------------------------- */
-        pCtx->swState.word                        = 0x0000u;
+        /* EDIT::Init 이슈 pdf 75p 기준 pCtx->swState.word = 0xFFFCu 수정      */
+        pCtx->swState.word                        = 0xFFFCu;
 
         /* --- 9h DEV_CONFIG ------------------------------------------------ */
-        pCtx->devConfig.word                      = 0x0000u;
+        /* EDIT::Init 이슈 pdf 76p 기준 pCtx->devConfig.word = 0xF800u 수정      */
+        pCtx->devConfig.word                      = 0xF800u;
         pCtx->devConfig.bits.CH2_LH_IN            = TPS2HCS08_LH_IN_KEEP_CHx_ON;
         pCtx->devConfig.bits.CH1_LH_IN            = TPS2HCS08_LH_IN_KEEP_CHx_ON;
         pCtx->devConfig.bits.PWM_SHIFT_DIS        = 0u;
