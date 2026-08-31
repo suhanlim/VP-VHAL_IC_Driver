@@ -502,6 +502,7 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
     exVioDbTps2hcs08WakeUpReq  = FALSE;
     exVioDbTps2hcs08ReCfgReq   = FALSE;
     exVioDbTps2hcs08RunState   = TPS2HCS08_RUN_ACTIVE;
+    exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_SET_DEF;
 }
 
 /*------------------------------------------------------------------------------
@@ -1370,7 +1371,6 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
     switch (exVioDbTps2hcs08SetupScnState)
     {
         case TPS2HCS08_SETUP_SCN_SET_DEF:
-            ExVioDb_InitRegValue_Tps2hcs08();
             exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_DB_PARSING;
             break;
 
