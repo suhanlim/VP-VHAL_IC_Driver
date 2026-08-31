@@ -31,6 +31,54 @@
 #include "Std_Types.h"          /* uint8 / uint16 / boolean / Std_ReturnType   */
 
 /*==============================================================================
+ *  RTE APPLICATION DATA TYPE FALLBACKS
+ *      Rte_Type.h supplies these definitions in the production AUTOSAR build.
+ *      Keep byte-sized aliases and matching enumerator values for stand-alone
+ *      driver builds. The RTE-generated type guards prevent redefinition.
+ *============================================================================*/
+#ifndef Rte_TypeDef_TE_STD_SPI_RESULT
+#define Rte_TypeDef_TE_STD_SPI_RESULT
+typedef uint8 TE_STD_SPI_RESULT;
+#endif
+
+#ifndef Rte_TypeDef_TE_EX_VIO_OUTPUT_RESULT
+#define Rte_TypeDef_TE_EX_VIO_OUTPUT_RESULT
+typedef uint8 TE_EX_VIO_OUTPUT_RESULT;
+#endif
+
+#ifndef STD_SPI_OK
+#define STD_SPI_OK                         ((TE_STD_SPI_RESULT)0u)
+#define STD_SPI_NOT_OK                     ((TE_STD_SPI_RESULT)1u)
+#define STD_SPI_TRANSMIT_FAIL              ((TE_STD_SPI_RESULT)2u)
+#define STD_SPI_BUFFER_SETUP_FAIL          ((TE_STD_SPI_RESULT)3u)
+#define STD_SPI_SEQ_FAIL                   ((TE_STD_SPI_RESULT)4u)
+#define STD_SPI_CALLBACK_SETUP_FAIL        ((TE_STD_SPI_RESULT)5u)
+#define STD_SPI_INVALID_DATA               ((TE_STD_SPI_RESULT)6u)
+#define STD_SPI_INVALID_DATA_LEN           ((TE_STD_SPI_RESULT)7u)
+#define STD_SPI_SYNC_BUSY                  ((TE_STD_SPI_RESULT)8u)
+#define STD_SPI_INVALID_TASK               ((TE_STD_SPI_RESULT)9u)
+#endif
+
+#ifndef EX_VIO_OUTPUT_E_OK
+#define EX_VIO_OUTPUT_E_OK                 ((TE_EX_VIO_OUTPUT_RESULT)0u)
+#define EX_VIO_OUTPUT_E_NOT_OK             ((TE_EX_VIO_OUTPUT_RESULT)1u)
+#define EX_VIO_OUTPUT_E_SPI_CONFIG_ERROR   ((TE_EX_VIO_OUTPUT_RESULT)2u)
+#define EX_VIO_OUTPUT_E_ALREADY_INITIALIZED ((TE_EX_VIO_OUTPUT_RESULT)3u)
+#define EX_VIO_OUTPUT_E_NOT_STOPPED        ((TE_EX_VIO_OUTPUT_RESULT)4u)
+#define EX_VIO_OUTPUT_E_ALREADY_IN_IDLE    ((TE_EX_VIO_OUTPUT_RESULT)5u)
+#define EX_VIO_OUTPUT_E_ALREADY_RUNNING    ((TE_EX_VIO_OUTPUT_RESULT)6u)
+#define EX_VIO_OUTPUT_E_NOT_INITIALIZED    ((TE_EX_VIO_OUTPUT_RESULT)7u)
+#define EX_VIO_OUTPUT_E_NOT_RUNNING        ((TE_EX_VIO_OUTPUT_RESULT)8u)
+#define EX_VIO_OUTPUT_E_SPI_COMM_ERROR     ((TE_EX_VIO_OUTPUT_RESULT)9u)
+#define EX_VIO_OUTPUT_E_SLEEP_PIN_ERROR    ((TE_EX_VIO_OUTPUT_RESULT)10u)
+#define EX_VIO_OUTPUT_E_CONFIG_MISMATCH    ((TE_EX_VIO_OUTPUT_RESULT)11u)
+#define EX_VIO_OUTPUT_E_FATAL_ERROR        ((TE_EX_VIO_OUTPUT_RESULT)12u)
+#define EX_VIO_OUTPUT_E_INVALID_PARAM      ((TE_EX_VIO_OUTPUT_RESULT)13u)
+#define EX_VIO_OUTPUT_E_IN_STOPPING        ((TE_EX_VIO_OUTPUT_RESULT)14u)
+#define EX_VIO_OUTPUT_E_INIT_REG_ERROR     ((TE_EX_VIO_OUTPUT_RESULT)15u)
+#endif
+
+/*==============================================================================
  *  1. COMPILER / LOG ABSTRACTION
  *      The production project gets these from Compiler.h and from the standard
  *      SWC manager log header. The fallback below keeps the component
@@ -119,7 +167,8 @@
  *============================================================================*/
 typedef struct
 {
-    uint8   CAT_1;          /* IC category      ( 8 = e-Fuse TPS2HCS08 )      */
+    uint16  SIG_ID;         /* signal ID in the vehicle IO DB                */
+    uint8   CAT_1;          /* IC category      ( 5 = e-Fuse )                */
     uint8   CAT_2;          /* output polarity  ( 0 = active high )           */
     uint8   SC;             /* standard controller ID                         */
     uint8   IC;             /* daisy chain device index                       */
@@ -127,6 +176,7 @@ typedef struct
     uint8   USED;           /* channel assigned                               */
     uint8   MOC;            /* multi output channel ( parallel operation )    */
     uint8   OCP;            /* over current protection level                  */
+    uint8   RT;             /* retry / reaction-time DB parameter             */
     uint8   PWM;            /* PWM type ( 0 none / 1 PWM_C / 2 _X / 3 _O )    */
     uint8   OLD;            /* off state open load detection                  */
     uint8   PWM_F;          /* PWM frequency                                  */
@@ -134,8 +184,17 @@ typedef struct
     uint8   SR;             /* output slew rate                               */
     uint8   VOL_DET;        /* VOUT voltage sensing use                       */
     uint8   DEF_Value;      /* initial output level ( B+ always on )          */
+    uint8   Wake;           /* wake-up configuration                          */
+    uint8   PRE_Value;      /* previous output value                          */
     uint8   WC;             /* wire cross section ( -> ISWCL )                */
+    uint8   Threshold_V;    /* input/output diagnostic threshold              */
     uint8   PWM_Duty;       /* PWM duty / inrush current limit                */
+
+    uint16  AnaValue;       /* latest analog value                            */
+    boolean flg_PRE_Value;  /* PRE_Value validity flag                        */
+    uint16  frt_CT;         /* charging-time runtime counter                  */
+    uint8   port_num[4];    /* mapped IC ports                                */
+    uint8   port_cnt;       /* number of mapped IC ports                      */
 } tExVioDbRec;
 
 extern const tExVioDbRec    exVioDbRec[];
@@ -146,11 +205,19 @@ extern uint16               exVioDbMemCnt;
  *============================================================================*/
 typedef enum
 {
-    EXVIODB_STATE_DISABLE = 0,      /* component not started                  */
-    EXVIODB_STATE_EXVIO_SETUP,      /* device setup scan running              */
-    EXVIODB_STATE_RUN,              /* normal cyclic operation                */
-    EXVIODB_STATE_ERROR             /* setup failed / unrecoverable error     */
-} tExVioDbStateSeq;
+    EXVIODB_STATE_SET_CMD = 0,
+    EXVIODB_STATE_START,
+    EXVIODB_STATE_READ_ZONE,
+    EXVIODB_STATE_LOAD_DB,
+    EXVIODB_STATE_EXVIO_SETUP,
+    EXVIODB_STATE_RUN,
+    EXVIODB_STATE_ERROR,
+    EXVIODB_STATE_DISABLE
+} T_exVioDbState;
+
+/* Stand-alone source compatibility. The production SWC uses
+ * T_exVioDbState directly. */
+typedef T_exVioDbState tExVioDbStateSeq;
 
 extern tExVioDbStateSeq     exVioDbStateSeq;
 

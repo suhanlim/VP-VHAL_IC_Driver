@@ -433,8 +433,8 @@ typedef union
 /*==============================================================================
  *  6. VEHICLE IO SIGNAL DB PARAMETER DEFINITION
  *============================================================================*/
-/* CAT_1 : TPS2HCS08-Q1 assigned signal uses ID 8 (E-FUSE TPS2HCS08)          */
-#define DB_CAT1_E_FUSE_TPS2HCS08          (8u)
+/* CAT_1 : reuse the production DB's E-FUSE category (DB_CAT1_E_FUSE = 5).   */
+#define DB_CAT1_E_FUSE_TPS2HCS08          (5u)
 /* CAT_2 : TPS2HCS08-Q1 assigned signal uses ID 0 (Active High)               */
 #define DB_CAT2_ACTIVE_HIGH               (0u)
 
