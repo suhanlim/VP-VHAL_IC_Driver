@@ -432,12 +432,14 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
         pCtx->adcConfig.bits.ADC_DIS              = 0u;
 
         /* --- 3h LPM ------------------------------------------------------- */
-        pCtx->lpm.word                            = 0x0000u;
+        /* EDIT::Init 이슈 pdf 70p 기준 pCtx->lpm.word = 0xFF80u 수정          */
+        pCtx->lpm.word                            = 0xFF80u;
 
         for (chIdx = 0u; chIdx < TPS2HCS08_CH_MAX; chIdx++)
         {
             /* --- Eh PWM_CHx ---------------------------------------------- */
-            pCtx->pwmCh[chIdx].word               = 0x0000u;
+            /* EDIT::Init 이슈 pdf 83p 기준 pCtx->pwmCh[chIdx].word = 0xF000u 수정 */
+            pCtx->pwmCh[chIdx].word               = 0xF000u;
 
             /* --- Fh ILIM_CONFIG_CHx ( reset = 0088h ) -------------------- */
             pCtx->ilimCfgCh[chIdx].word           = 0x0000u;
