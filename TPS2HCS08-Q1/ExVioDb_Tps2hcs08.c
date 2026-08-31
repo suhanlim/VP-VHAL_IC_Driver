@@ -64,7 +64,7 @@
  *      - CSN control is separated from the transfer because the wake up
  *        sequence needs a CSN low pulse without any SCLK.
  *============================================================================*/
-extern boolean ExVioDb_Tps2hcs08_Port_SpiTransfer(uint8 devIdx,
+extern Std_ReturnType ExVioDb_Tps2hcs08_Port_SpiTransfer(uint8 devIdx,
                                                   const uint8 *txData,
                                                   uint8 *rxData,
                                                   uint8 len);
