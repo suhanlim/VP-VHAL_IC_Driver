@@ -573,8 +573,6 @@ typedef struct
     boolean                     devPresent;
 } tTps2hcs08Ctx;
 
-#define TPS2HCS08_SPI_FRAME_LEN_NO_CRC   (3u)
-#define TPS2HCS08_SPI_FRAME_LEN_CRC      (4u)
 #define TPS2HCS08_SPI_FRAME_LEN_MAX      TPS2HCS08_SPI_FRAME_LEN_CRC
 
 #define TPS2HCS08_CHAIN_BUF_LEN_MAX \
