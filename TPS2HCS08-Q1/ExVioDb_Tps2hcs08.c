@@ -347,6 +347,7 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr
  *      The 16bit "Data Out" of SDO is always the data of the PREVIOUS SPI
  *      frame (Figure 8-8), therefore a read needs 2 transactions.
  *----------------------------------------------------------------------------*/
+// TODO: 로직 수정 필요 SPI 데이터 프레임 생성 로직 수정 필요 + SPI 요청 2번 이유 확인 필요
 D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 *readValue)
 {
     uint8           txBuf[TPS2HCS08_SPI_FRAME_LEN];
@@ -787,6 +788,8 @@ D_STATIC void ExVioDb_ParsingOutputTps2hcs08Reg(uint16 sigIndex)
  *      SLEEP -> INIT & ABIST : CSN low transition.
  *      A dummy SPI frame is used so that the device wakes up without SPI_ERR.
  *----------------------------------------------------------------------------*/
+// TODO: 데이지 체인 방식으로 변경 필요
+// TODO: ~SetCsn 함수 구현 필요
 D_STATIC void ExVioDb_WakeUp_Tps2hcs08(void)
 {
     uint8 devIdx;
@@ -823,6 +826,7 @@ D_STATIC uint8 ExVioDb_WaitReadyDone_Tps2hcs08(void)
     {
         retVal = TPS2HCS08_COMPLETE;
 
+        // TODO: 데이지 체인 방식으로 변경 필요 4번의 반복 x 하나의 데이터 프레임을 x 4 배로 준비하는 과정
         for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
         {
             if (exVioDbTps2hcs08Ctx[devIdx].devPresent != TRUE)
@@ -1374,6 +1378,7 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
             exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_DB_PARSING;
             break;
 
+        // TODO: 시퀀스 변경 필요 Wakeup 이후 진행해야 함
         case TPS2HCS08_SETUP_SCN_DB_PARSING:
             for (sigIndex = 0u; sigIndex < exVioDbMemCnt; sigIndex++)
             {
