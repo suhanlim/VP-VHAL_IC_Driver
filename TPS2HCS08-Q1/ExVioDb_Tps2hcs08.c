@@ -272,6 +272,7 @@ D_STATIC const tTps2hcs08FaultLogEntry exVioDbTps2hcs08ChLogTbl[] =
 /* --- SPI access ---------------------------------------------------------- */
 D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 payload);
 D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 *readValue);
+D_STATIC uint16        *ExVioDb_GetWritableShadowPtr_Tps2hcs08(uint8 devIdx, uint8 addr);
 
 /* --- DB parsing ---------------------------------------------------------- */
 D_STATIC void           ExVioDb_ParsingOutputTps2hcs08Reg(uint16 sigIndex);
@@ -310,6 +311,85 @@ D_STATIC void  ExVioDb_EvalChFaultLog_Tps2hcs08(uint8 devIdx, uint8 chIdx);
  *  SECTION 1 : SPI ACCESS
  ******************************************************************************/
 /*------------------------------------------------------------------------------
+ *  ExVioDb_GetWritableShadowPtr_Tps2hcs08
+ *      Maps a writable register address to the runtime shadow word.
+ *      Read-only/reserved registers return NULL_PTR and are rejected before SPI.
+ *      SLEEP(2h) is a one-shot command register; keep it out of this shadow map
+ *      and add a dedicated EnterSleep function if SLEEP command support is added.
+ *----------------------------------------------------------------------------*/
+D_STATIC uint16 *ExVioDb_GetWritableShadowPtr_Tps2hcs08(uint8 devIdx, uint8 addr)
+{
+    uint16         *pShadow = NULL_PTR;
+    tTps2hcs08Ctx *pCtx;
+
+    if (devIdx < TPS2HCS08_DEV_MAX)
+    {
+        pCtx = &exVioDbTps2hcs08Ctx[devIdx];
+
+        switch (addr)
+        {
+            case TPS2HCS08_REG_LPM:
+                pShadow = &pCtx->lpm.word;
+                break;
+
+            case TPS2HCS08_REG_FAULT_MASK:
+                pShadow = &pCtx->faultMask.word;
+                break;
+
+            case TPS2HCS08_REG_SW_STATE:
+                pShadow = &pCtx->swState.word;
+                break;
+
+            case TPS2HCS08_REG_DEV_CONFIG:
+                pShadow = &pCtx->devConfig.word;
+                break;
+
+            case TPS2HCS08_REG_ADC_CONFIG:
+                pShadow = &pCtx->adcConfig.word;
+                break;
+
+            case TPS2HCS08_REG_PWM_CH1:
+                pShadow = &pCtx->pwmCh[TPS2HCS08_CH1].word;
+                break;
+
+            case TPS2HCS08_REG_PWM_CH2:
+                pShadow = &pCtx->pwmCh[TPS2HCS08_CH2].word;
+                break;
+
+            case TPS2HCS08_REG_ILIM_CONFIG_CH1:
+                pShadow = &pCtx->ilimCfgCh[TPS2HCS08_CH1].word;
+                break;
+
+            case TPS2HCS08_REG_ILIM_CONFIG_CH2:
+                pShadow = &pCtx->ilimCfgCh[TPS2HCS08_CH2].word;
+                break;
+
+            case TPS2HCS08_REG_CH1_CONFIG:
+                pShadow = &pCtx->chConfig[TPS2HCS08_CH1].word;
+                break;
+
+            case TPS2HCS08_REG_CH2_CONFIG:
+                pShadow = &pCtx->chConfig[TPS2HCS08_CH2].word;
+                break;
+
+            case TPS2HCS08_REG_I2T_CONFIG_CH1:
+                pShadow = &pCtx->i2tCfgCh[TPS2HCS08_CH1].word;
+                break;
+
+            case TPS2HCS08_REG_I2T_CONFIG_CH2:
+                pShadow = &pCtx->i2tCfgCh[TPS2HCS08_CH2].word;
+                break;
+
+            default:
+                /* read-only, reserved, or one-shot command register */
+                break;
+        }
+    }
+
+    return pShadow;
+}
+
+/*------------------------------------------------------------------------------
  *  ExVioDb_WriteRegister_Tps2hcs08
  *      24bit write frame : [23]=1 [22:16]=ADDR [15:0]=DATA
  *----------------------------------------------------------------------------*/
@@ -317,25 +397,37 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr
 {
     uint8           txBuf[TPS2HCS08_SPI_FRAME_LEN];
     uint8           rxBuf[TPS2HCS08_SPI_FRAME_LEN];
+    uint16         *pShadow;
     Std_ReturnType  retVal = E_NOT_OK;
 
+    // 한개의 세트에 데이터를 채우는 로직은 적절하지만 SPI 통신을 4번 하는게 아닌 데이터 4개를 이어붙여서 한번에 보내야 함
     if (devIdx < TPS2HCS08_DEV_MAX)
     {
-        txBuf[0] = (uint8)(TPS2HCS08_SPI_CMD_WRITE | (addr & TPS2HCS08_SPI_ADDR_MASK));
-        txBuf[1] = (uint8)((payload >> 8u) & 0x00FFu);
-        txBuf[2] = (uint8)(payload & 0x00FFu);
-
-        if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
-                                               TPS2HCS08_SPI_FRAME_LEN) == TRUE)
+        pShadow = ExVioDb_GetWritableShadowPtr_Tps2hcs08(devIdx, addr);
+        if (pShadow != NULL_PTR)
         {
-            /* SDO[23:16] is always GLOBAL_FAULT_TYPE[15:8] */
-            exVioDbTps2hcs08SdoHeader[devIdx] = rxBuf[0];
-            retVal = E_OK;
+            txBuf[0] = (uint8)(TPS2HCS08_SPI_CMD_WRITE | (addr & TPS2HCS08_SPI_ADDR_MASK));
+            txBuf[1] = (uint8)((payload >> 8u) & 0x00FFu);
+            txBuf[2] = (uint8)(payload & 0x00FFu);
+
+            if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
+                                                   TPS2HCS08_SPI_FRAME_LEN) == E_OK)
+            {
+                /* SDO[23:16] is always GLOBAL_FAULT_TYPE[15:8] */
+                exVioDbTps2hcs08SdoHeader[devIdx] = rxBuf[0];
+                *pShadow = payload;
+                retVal = E_OK;
+            }
+            else
+            {
+                TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+                    "[TPS2HCS08] SPI WRITE FAIL. dev=%d addr=0x%02X\r\n", devIdx, addr);
+            }
         }
         else
         {
             TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-                "[TPS2HCS08] SPI WRITE FAIL. dev=%d addr=0x%02X\r\n", devIdx, addr);
+                "[TPS2HCS08] INVALID WRITE REGISTER. dev=%d addr=0x%02X\r\n", devIdx, addr);
         }
     }
 
@@ -362,11 +454,11 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr,
 
         /* 1st frame : send the read command                                  */
         if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
-                                               TPS2HCS08_SPI_FRAME_LEN) == TRUE)
+                                               TPS2HCS08_SPI_FRAME_LEN) == E_OK)
         {
             /* 2nd frame : dummy read, SDO carries the data of the 1st frame  */
             if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
-                                                   TPS2HCS08_SPI_FRAME_LEN) == TRUE)
+                                                   TPS2HCS08_SPI_FRAME_LEN) == E_OK)
             {
                 exVioDbTps2hcs08SdoHeader[devIdx] = rxBuf[0];
                 *readValue = (uint16)(((uint16)rxBuf[1] << 8u) | (uint16)rxBuf[2]);
@@ -922,9 +1014,8 @@ D_STATIC uint8 ExVioDb_WriteConfig_Tps2hcs08(void)
         }
 
         /* 7h SW_STATE : keep all outputs OFF during configuration           */
-        pCtx->swState.word = 0x0000u;
         if (ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_SW_STATE,
-                                            pCtx->swState.word) != E_OK)
+                                            0x0000u) != E_OK)
         {
             retVal = TPS2HCS08_BUSY;
         }
@@ -1110,10 +1201,14 @@ D_STATIC void ExVioDb_DiagSetPullDown_Tps2hcs08(void)
                 continue;
             }
 
-            pCtx->chConfig[chIdx].bits.OL_SVBB_EN_CHx = TPS2HCS08_OL_SVBB_PULLDOWN;
-            (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx,
-                    TPS2HCS08_CH_REG(TPS2HCS08_REG_CH1_CONFIG, chIdx),
-                    pCtx->chConfig[chIdx].word);
+            {
+                tTps2hcs08ChConfig chConfig = pCtx->chConfig[chIdx];
+
+                chConfig.bits.OL_SVBB_EN_CHx = TPS2HCS08_OL_SVBB_PULLDOWN;
+                (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx,
+                        TPS2HCS08_CH_REG(TPS2HCS08_REG_CH1_CONFIG, chIdx),
+                        chConfig.word);
+            }
         }
     }
 }
@@ -1143,10 +1238,14 @@ D_STATIC void ExVioDb_DiagSetPullUp_Tps2hcs08(void)
                 continue;
             }
 
-            pCtx->chConfig[chIdx].bits.OL_SVBB_EN_CHx = TPS2HCS08_OL_SVBB_PULLUP;
-            (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx,
-                    TPS2HCS08_CH_REG(TPS2HCS08_REG_CH1_CONFIG, chIdx),
-                    pCtx->chConfig[chIdx].word);
+            {
+                tTps2hcs08ChConfig chConfig = pCtx->chConfig[chIdx];
+
+                chConfig.bits.OL_SVBB_EN_CHx = TPS2HCS08_OL_SVBB_PULLUP;
+                (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx,
+                        TPS2HCS08_CH_REG(TPS2HCS08_REG_CH1_CONFIG, chIdx),
+                        chConfig.word);
+            }
         }
     }
 }
@@ -1307,13 +1406,17 @@ D_STATIC void ExVioDb_DiagReport_Tps2hcs08(void)
             }
 
             /* restore : keep the pull up when OLD is used, otherwise disable */
-            pCtx->chConfig[chIdx].bits.OL_SVBB_EN_CHx =
-                (pCtx->chCfg[chIdx].oldUse == TRUE) ? TPS2HCS08_OL_SVBB_PULLUP
-                                                    : TPS2HCS08_OL_SVBB_DISABLE;
+            {
+                tTps2hcs08ChConfig chConfig = pCtx->chConfig[chIdx];
 
-            (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx,
-                    TPS2HCS08_CH_REG(TPS2HCS08_REG_CH1_CONFIG, chIdx),
-                    pCtx->chConfig[chIdx].word);
+                chConfig.bits.OL_SVBB_EN_CHx =
+                    (pCtx->chCfg[chIdx].oldUse == TRUE) ? TPS2HCS08_OL_SVBB_PULLUP
+                                                        : TPS2HCS08_OL_SVBB_DISABLE;
+
+                (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx,
+                        TPS2HCS08_CH_REG(TPS2HCS08_REG_CH1_CONFIG, chIdx),
+                        chConfig.word);
+            }
         }
 
         /* the fault bit of the initial diagnostic is cleared by the read     */
@@ -1333,6 +1436,7 @@ D_STATIC void ExVioDb_ActiveEntry_Tps2hcs08(void)
     for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
     {
         tTps2hcs08Ctx *pCtx = &exVioDbTps2hcs08Ctx[devIdx];
+        tTps2hcs08SwState swState = pCtx->swState;
 
         if (pCtx->devPresent != TRUE)
         {
@@ -1346,17 +1450,17 @@ D_STATIC void ExVioDb_ActiveEntry_Tps2hcs08(void)
             {
                 if (chIdx == TPS2HCS08_CH1)
                 {
-                    pCtx->swState.bits.CH1_ON = TPS2HCS08_CH_ON;
+                    swState.bits.CH1_ON = TPS2HCS08_CH_ON;
                 }
                 else
                 {
-                    pCtx->swState.bits.CH2_ON = TPS2HCS08_CH_ON;
+                    swState.bits.CH2_ON = TPS2HCS08_CH_ON;
                 }
             }
         }
 
         (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_SW_STATE,
-                                              pCtx->swState.word);
+                                              swState.word);
     }
 }
 
@@ -1653,6 +1757,9 @@ D_STATIC void ExVioDb_SetAutoLpmEntry_Tps2hcs08(boolean enable)
     for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
     {
         tTps2hcs08Ctx *pCtx = &exVioDbTps2hcs08Ctx[devIdx];
+        tTps2hcs08Lpm       lpm = pCtx->lpm;
+        tTps2hcs08AdcConfig adcConfig = pCtx->adcConfig;
+        tTps2hcs08DevConfig devConfig = pCtx->devConfig;
 
         if (pCtx->devPresent != TRUE)
         {
@@ -1662,40 +1769,41 @@ D_STATIC void ExVioDb_SetAutoLpmEntry_Tps2hcs08(boolean enable)
         if (enable == TRUE)
         {
             /* AUTO_LPM_EXIT_CHx = 0 ( entry condition )                      */
-            pCtx->lpm.bits.AUTO_LPM_EXIT_CH1 = 0u;
-            pCtx->lpm.bits.AUTO_LPM_EXIT_CH2 = 0u;
+            lpm.bits.AUTO_LPM_EXIT_CH1 = 0u;
+            lpm.bits.AUTO_LPM_EXIT_CH2 = 0u;
             (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_LPM,
-                                                  pCtx->lpm.word);
+                                                  lpm.word);
 
             /* all ADC diagnostics except ISNS must be disabled               */
-            pCtx->adcConfig.bits.ADC_VSNS_DIS = 1u;
-            pCtx->adcConfig.bits.ADC_VDS_DIS  = 1u;
-            pCtx->adcConfig.bits.ADC_TSNS_DIS = 1u;
-            pCtx->adcConfig.bits.ADC_VBB_DIS  = 1u;
+            adcConfig.bits.ADC_VSNS_DIS = 1u;
+            adcConfig.bits.ADC_VDS_DIS  = 1u;
+            adcConfig.bits.ADC_TSNS_DIS = 1u;
+            adcConfig.bits.ADC_VBB_DIS  = 1u;
             (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_ADC_CONFIG,
-                                                  pCtx->adcConfig.word);
+                                                  adcConfig.word);
 
             /* watchdog disable + AUTO_LPM_ENTRY = 1                          */
-            pCtx->devConfig.bits.WD_EN          = 0u;
-            pCtx->devConfig.bits.AUTO_LPM_ENTRY = 1u;
+            devConfig.bits.WD_EN          = 0u;
+            devConfig.bits.AUTO_LPM_ENTRY = 1u;
         }
         else
         {
-            pCtx->devConfig.bits.AUTO_LPM_ENTRY = 0u;
-            pCtx->devConfig.bits.WD_EN          = 1u;
+            devConfig.bits.AUTO_LPM_ENTRY = 0u;
+            devConfig.bits.WD_EN          = 1u;
         }
 
         (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_DEV_CONFIG,
-                                              pCtx->devConfig.word);
+                                              devConfig.word);
 
         if (enable != TRUE)
         {
             /* restore the ADC diagnostic setting of the signal DB            */
             uint8 chIdx;
 
-            pCtx->adcConfig.bits.ADC_VSNS_DIS = 0u;
+            adcConfig = pCtx->adcConfig;
+            adcConfig.bits.ADC_VSNS_DIS = 0u;
             (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_ADC_CONFIG,
-                                                  pCtx->adcConfig.word);
+                                                  adcConfig.word);
 
             for (chIdx = 0u; chIdx < TPS2HCS08_CH_MAX; chIdx++)
             {
@@ -1760,6 +1868,7 @@ D_STATIC void ExVioDb_SetAutoLpmExit_Tps2hcs08(boolean exit)
     for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
     {
         tTps2hcs08Ctx *pCtx = &exVioDbTps2hcs08Ctx[devIdx];
+        tTps2hcs08Lpm  lpm = pCtx->lpm;
 
         if (pCtx->devPresent != TRUE)
         {
@@ -1768,19 +1877,19 @@ D_STATIC void ExVioDb_SetAutoLpmExit_Tps2hcs08(boolean exit)
 
         if (exit == TRUE)
         {
-            pCtx->lpm.bits.AUTO_LPM_EXIT_CH1 =
+            lpm.bits.AUTO_LPM_EXIT_CH1 =
                 (pCtx->chCfg[TPS2HCS08_CH1].used == TRUE) ? 1u : 0u;
-            pCtx->lpm.bits.AUTO_LPM_EXIT_CH2 =
+            lpm.bits.AUTO_LPM_EXIT_CH2 =
                 (pCtx->chCfg[TPS2HCS08_CH2].used == TRUE) ? 1u : 0u;
         }
         else
         {
-            pCtx->lpm.bits.AUTO_LPM_EXIT_CH1 = 0u;
-            pCtx->lpm.bits.AUTO_LPM_EXIT_CH2 = 0u;
+            lpm.bits.AUTO_LPM_EXIT_CH1 = 0u;
+            lpm.bits.AUTO_LPM_EXIT_CH2 = 0u;
         }
 
         (void)ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_LPM,
-                                              pCtx->lpm.word);
+                                              lpm.word);
     }
 }
 
@@ -2080,19 +2189,21 @@ Std_ReturnType ExVioDb_SetChannelOutput_Tps2hcs08(uint8 devIdx, uint8 chIdx, boo
 
         if ((pCtx->devPresent == TRUE) && (pCtx->chCfg[chIdx].used == TRUE))
         {
+            tTps2hcs08SwState swState = pCtx->swState;
+
             if (chIdx == TPS2HCS08_CH1)
             {
-                pCtx->swState.bits.CH1_ON = (onOff == TRUE) ? TPS2HCS08_CH_ON
-                                                            : TPS2HCS08_CH_OFF;
+                swState.bits.CH1_ON = (onOff == TRUE) ? TPS2HCS08_CH_ON
+                                                       : TPS2HCS08_CH_OFF;
             }
             else
             {
-                pCtx->swState.bits.CH2_ON = (onOff == TRUE) ? TPS2HCS08_CH_ON
-                                                            : TPS2HCS08_CH_OFF;
+                swState.bits.CH2_ON = (onOff == TRUE) ? TPS2HCS08_CH_ON
+                                                       : TPS2HCS08_CH_OFF;
             }
 
             retVal = ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_SW_STATE,
-                                                     pCtx->swState.word);
+                                                     swState.word);
         }
     }
 
