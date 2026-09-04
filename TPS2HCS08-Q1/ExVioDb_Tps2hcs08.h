@@ -548,20 +548,30 @@ typedef enum
 typedef struct
 {
     /* --- shadow register (last written value) ---------------------------- */
+    tTps2hcs08DevId             devId;
+    tTps2hcs08CrcConfig         crcConfig;
+    tTps2hcs08Sleep             sleep;
+    tTps2hcs08Lpm               lpm;
+
+    /* --- last read status ------------------------------------------------ */
+    tTps2hcs08GlobalFaultType   globalFault;
     tTps2hcs08FaultMask         faultMask;
     tTps2hcs08SwState           swState;
     tTps2hcs08DevConfig         devConfig;
     tTps2hcs08AdcConfig         adcConfig;
-    tTps2hcs08Lpm               lpm;
+    tTps2hcs08AdcResultVbb      adcResultVbb;
+
+    /* --- channel status -------------------------------------------------- */
+    tTps2hcs08FltStatCh         fltStatCh[TPS2HCS08_CH_MAX];
     tTps2hcs08PwmCh             pwmCh[TPS2HCS08_CH_MAX];
     tTps2hcs08IlimConfigCh      ilimCfgCh[TPS2HCS08_CH_MAX];
     tTps2hcs08ChConfig          chConfig[TPS2HCS08_CH_MAX];
+    tTps2hcs08AdcResultChI      adcResultChI[TPS2HCS08_CH_MAX];
+    tTps2hcs08AdcResultCh       adcResultChT[TPS2HCS08_CH_MAX];
+    tTps2hcs08AdcResultCh       adcResultChV[TPS2HCS08_CH_MAX];
+    tTps2hcs08AdcResultCh       adcResultChVDS[TPS2HCS08_CH_MAX];
     tTps2hcs08I2tConfigCh       i2tCfgCh[TPS2HCS08_CH_MAX];
-
-    /* --- last read status ------------------------------------------------ */
-    tTps2hcs08GlobalFaultType   globalFault;
-    tTps2hcs08FltStatCh         fltStatCh[TPS2HCS08_CH_MAX];
-
+#pragma region TOOD Check
     /* --- DB parsing result ----------------------------------------------- */
     tTps2hcs08ChCfg             chCfg[TPS2HCS08_CH_MAX];
 
@@ -581,6 +591,7 @@ typedef struct
     boolean                     lpmStatus1Cleared;
 
     boolean                     devPresent;
+#pragma endregion
 } tTps2hcs08Ctx;
 
 #define TPS2HCS08_SPI_FRAME_LEN_MAX      TPS2HCS08_SPI_FRAME_LEN_CRC
