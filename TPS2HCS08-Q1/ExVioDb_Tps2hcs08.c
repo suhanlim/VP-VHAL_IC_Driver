@@ -1631,6 +1631,13 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
             break;
 
         // TODO: 시퀀스 변경 필요 Wakeup 이후 진행해야 함
+        /* M-15: DB_PARSING vs VHAL_FR DBLoad - NOT duplicate, different roles:
+         * - VHAL_FR DBLoad: Application-level, loads entire Vehicle IO DB into memory
+         * - SETUP_SCN_DB_PARSING: IC driver-level, filters TPS2HCS08 signals only
+         *   and translates DB parameters into IC-specific shadow register values
+         * This stage must run during IC initialization to configure shadow registers
+         * from DB before writing to actual hardware.
+         */
         case TPS2HCS08_SETUP_SCN_DB_PARSING:
             for (sigIndex = 0u; sigIndex < exVioDbMemCnt; sigIndex++)
             {
@@ -2049,6 +2056,14 @@ D_STATIC void ExVioDb_SetAutoLpmExit_Tps2hcs08(boolean exit)
  *  ExVioDb_EvalGlobalFaultLog_Tps2hcs08
  *      Prints the field name once per fault occurrence ( one shot latch ).
  *----------------------------------------------------------------------------*/
+/* M-18: Fault READ and edge detection
+ * Implements edge-triggered fault logging to avoid log spam:
+ * - logLatchGlobal/logLatchCh: Stores previous fault state
+ * - Rising edge: New fault detected → log ERROR
+ * - Falling edge: Fault cleared → silently update latch
+ * - No change: No log output
+ * Also detects POR (Power-On Reset) to trigger re-configuration.
+ */
 D_STATIC void ExVioDb_EvalGlobalFaultLog_Tps2hcs08(uint8 devIdx)
 {
     tTps2hcs08Ctx *pCtx = &exVioDbTps2hcs08Ctx[devIdx];
@@ -2237,6 +2252,17 @@ void ExVioDb_RunScnTps2hcs08Reg(void)
             }
             break;
 
+        /* M-17: AUTO_LPM entry/exit sequence (datasheet p.39-40, processes #11~#19)
+         * Ensures proper low-power mode handling:
+         * - #11 LPM_PREPARE: Notify application, prepare for sleep
+         * - #12 LPM_ENTRY: Set AUTO_LPM_ENTRY=1, disable WD, ADC diagnostics
+         * - #13-14 LPM_WAIT_STATUS: Wait for LPM_STATUS=1 (max 5s timeout)
+         * - #15-16 LPM_ACTIVE: Stay in LPM until wake request
+         * - #17 LPM_EXIT: Set AUTO_LPM_EXIT_CHx=1 in LPM register ONLY
+         * - #18-19 LPM_RESTORE: Clear AUTO_LPM_ENTRY/EXIT, restore settings
+         * CRITICAL: During AUTO_LPM, only LPM(3h) register can be written!
+         * Writing other registers is silently ignored by chip (datasheet p.34).
+         */
         case TPS2HCS08_RUN_LPM_PREPARE:                     /* process #11    */
             TF_STD_SWC_MNGR_LOG_SHEL_LOG_I(TAG_EEVP_EXVIODB,
                 "[TPS2HCS08] SLEEP MODE PREPARATION...\r\n");

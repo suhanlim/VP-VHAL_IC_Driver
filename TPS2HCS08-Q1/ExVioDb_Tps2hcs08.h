@@ -25,6 +25,35 @@
 #define TPS2HCS08_DEV_MAX                 (4u)   /* daisy-chain device count   */
 #define TPS2HCS08_CH_MAX                  (2u)   /* CH1, CH2                   */
 
+/* M-10: Daisy Chain Slot Mapping
+ *
+ * Physical Connection (datasheet p.24-25):
+ *   MCU SDI → [Dev N-1] → ... → [Dev 1] → [Dev 0] → MCU SDO
+ *
+ * For TPS2HCS08_DEV_MAX = 4:
+ *   MCU SDI → [Dev 3] → [Dev 2] → [Dev 1] → [Dev 0] → MCU SDO
+ *
+ * TX Buffer Order: [Slot 3][Slot 2][Slot 1][Slot 0]
+ *   - First transmitted slot reaches last device (Dev 3)
+ *   - Last transmitted slot reaches first device (Dev 0)
+ *
+ * Mapping Formula:
+ *   wireSlot = (TPS2HCS08_DEV_MAX - 1) - devIdx
+ *
+ * Example:
+ *   devIdx=0 → wireSlot=3 (transmitted first, reaches last device)
+ *   devIdx=3 → wireSlot=0 (transmitted last, reaches first device)
+ *
+ * CRITICAL: Verify with actual hardware circuit diagram!
+ * Match with Vehicle IO Signal DB IC column values.
+ *
+ * M-08: TODO - Bitfield layout verification
+ * Add compile-time or unit tests to verify struct bit ordering:
+ *   - Test: swState.word=0x0001 → CH1_ON=1, CH2_ON=0
+ *   - Test: swState.word=0x0002 → CH1_ON=0, CH2_ON=1
+ * Ensures compiler bit-field packing matches datasheet.
+ */
+
 #define TPS2HCS08_CH1                     (0u)
 #define TPS2HCS08_CH2                     (1u)
 
