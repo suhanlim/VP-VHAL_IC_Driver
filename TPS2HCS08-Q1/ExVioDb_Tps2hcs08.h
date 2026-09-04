@@ -43,6 +43,15 @@
  *      SDI  : [23]=R/W  [22:16]=ADDR[6:0]  [15:0]=DATA
  *      SDO  : [23:16]=GLOBAL_FAULT_TYPE[15:8]  [15:0]=DATA of PREVIOUS frame
  *      -> a register read always needs 2 transactions (Figure 8-8)
+ *
+ * M-13: CRC Mode (when CRC_EN=1):
+ *      - Algorithm: CRC-4-ITU (NOT CRC-8!)
+ *      - Polynomial: X^4 + X + 1
+ *      - Initial: 0xF
+ *      - Input: 24-bit frame (CMD + ADDR + DATA)
+ *      - Output: 4-bit appended as byte[3][7:4], byte[3][3:0]=0
+ *      - Frame length: 32-bit (4 bytes)
+ *      - Reference: Datasheet p.26
  *============================================================================*/
 #define TPS2HCS08_SPI_FRAME_LEN           (3u)   /* 24bit = 3 byte             */
 #define TPS2HCS08_SPI_FRAME_LEN_CRC       (4u)   /* 32bit = 4 byte (CRC_EN=1)  */

@@ -85,6 +85,49 @@ D_STATIC tTps2hcs08Ctx           exVioDbTps2hcs08Ctx[TPS2HCS08_DEV_MAX];
  * Now properly encapsulated with other per-device data.
  */
 
+/* M-09: Valid register address whitelist (28 registers).
+ * Datasheet p.65 Table 8-13: addresses 0x06, 0x08, 0x0C, 0x1F~0x7F are RESERVED.
+ * Attempting to write/read reserved addresses results in silent ignore by chip.
+ * Reject invalid addresses early to catch configuration errors.
+ */
+D_STATIC const uint8 tps2hcs08ValidAddresses[] =
+{
+    TPS2HCS08_REG_DEV_ID,              /* 0x00 */
+    TPS2HCS08_REG_CRC_CONFIG,          /* 0x01 */
+    TPS2HCS08_REG_SLEEP,               /* 0x02 */
+    TPS2HCS08_REG_LPM,                 /* 0x03 */
+    TPS2HCS08_REG_GLOBAL_FAULT_TYPE,   /* 0x04 */
+    TPS2HCS08_REG_FAULT_MASK,          /* 0x05 */
+    /* 0x06 - RESERVED */
+    TPS2HCS08_REG_SW_STATE,            /* 0x07 */
+    /* 0x08 - RESERVED */
+    TPS2HCS08_REG_DEV_CONFIG,          /* 0x09 */
+    TPS2HCS08_REG_ADC_CONFIG,          /* 0x0A */
+    TPS2HCS08_REG_ADC_RESULT_VBB,      /* 0x0B */
+    /* 0x0C - RESERVED */
+    TPS2HCS08_REG_FLT_STAT_CH1,        /* 0x0D */
+    TPS2HCS08_REG_PWM_CH1,             /* 0x0E */
+    TPS2HCS08_REG_ILIM_CONFIG_CH1,     /* 0x0F */
+    TPS2HCS08_REG_CH1_CONFIG,          /* 0x10 */
+    TPS2HCS08_REG_ADC_RESULT_CH1_I,    /* 0x11 */
+    TPS2HCS08_REG_ADC_RESULT_CH1_T,    /* 0x12 */
+    TPS2HCS08_REG_ADC_RESULT_CH1_V,    /* 0x13 */
+    TPS2HCS08_REG_ADC_RESULT_CH1_VDS,  /* 0x14 */
+    TPS2HCS08_REG_I2T_CONFIG_CH1,      /* 0x15 */
+    TPS2HCS08_REG_FLT_STAT_CH2,        /* 0x16 */
+    TPS2HCS08_REG_PWM_CH2,             /* 0x17 */
+    TPS2HCS08_REG_ILIM_CONFIG_CH2,     /* 0x18 */
+    TPS2HCS08_REG_CH2_CONFIG,          /* 0x19 */
+    TPS2HCS08_REG_ADC_RESULT_CH2_I,    /* 0x1A */
+    TPS2HCS08_REG_ADC_RESULT_CH2_T,    /* 0x1B */
+    TPS2HCS08_REG_ADC_RESULT_CH2_V,    /* 0x1C */
+    TPS2HCS08_REG_ADC_RESULT_CH2_VDS,  /* 0x1D */
+    TPS2HCS08_REG_I2T_CONFIG_CH2       /* 0x1E */
+    /* 0x1F~0x7F - RESERVED */
+};
+
+#define TPS2HCS08_VALID_ADDR_COUNT  (sizeof(tps2hcs08ValidAddresses) / sizeof(uint8))
+
 /* register write skip mask by DB parsing result                              */
 D_STATIC uint16                  exVioDbTps2hcs08SkipMask[TPS2HCS08_DEV_MAX][TPS2HCS08_CH_MAX];
 
@@ -272,6 +315,7 @@ D_STATIC const tTps2hcs08FaultLogEntry exVioDbTps2hcs08ChLogTbl[] =
  *  LOCAL FUNCTION PROTOTYPE
  *============================================================================*/
 /* --- SPI access ---------------------------------------------------------- */
+D_STATIC boolean        IsValidRegisterAddress_Tps2hcs08(uint8 addr);
 D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 payload);
 D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 *readValue);
 D_STATIC uint16        *ExVioDb_GetWritableShadowPtr_Tps2hcs08(uint8 devIdx, uint8 addr);
@@ -392,6 +436,26 @@ D_STATIC uint16 *ExVioDb_GetWritableShadowPtr_Tps2hcs08(uint8 devIdx, uint8 addr
 }
 
 /*------------------------------------------------------------------------------
+ *  IsValidRegisterAddress_Tps2hcs08
+ *      M-09: Validates register address against whitelist.
+ *      Rejects reserved addresses (0x06, 0x08, 0x0C, 0x1F~0x7F).
+ *----------------------------------------------------------------------------*/
+D_STATIC boolean IsValidRegisterAddress_Tps2hcs08(uint8 addr)
+{
+    uint8 i;
+
+    for (i = 0u; i < TPS2HCS08_VALID_ADDR_COUNT; i++)
+    {
+        if (tps2hcs08ValidAddresses[i] == addr)
+        {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+/*------------------------------------------------------------------------------
  *  ExVioDb_WriteRegister_Tps2hcs08
  *      24bit write frame : [23]=1 [22:16]=ADDR [15:0]=DATA
  *----------------------------------------------------------------------------*/
@@ -401,6 +465,15 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr
     uint8           rxBuf[TPS2HCS08_SPI_FRAME_LEN];
     uint16         *pShadow;
     Std_ReturnType  retVal = E_NOT_OK;
+
+    /* M-09: Validate register address first */
+    if (IsValidRegisterAddress_Tps2hcs08(addr) == FALSE)
+    {
+        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+            "[TPS2HCS08] INVALID REGISTER ADDRESS (RESERVED): dev=%d addr=0x%02X\r\n",
+            devIdx, addr);
+        return E_NOT_OK;
+    }
 
     // 한개의 세트에 데이터를 채우는 로직은 적절하지만 SPI 통신을 4번 하는게 아닌 데이터 4개를 이어붙여서 한번에 보내야 함
     if (devIdx < TPS2HCS08_DEV_MAX)
@@ -417,6 +490,11 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr
             {
                 /* SDO[23:16] is always GLOBAL_FAULT_TYPE[15:8] */
                 exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
+
+                /* M-14: Update shadow ONLY on successful SPI transfer.
+                 * If SPI fails, shadow retains last known good value.
+                 * This ensures shadow always reflects chip's actual state.
+                 */
                 *pShadow = payload;
                 retVal = E_OK;
             }
@@ -448,9 +526,21 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr,
     uint8           rxBuf[TPS2HCS08_SPI_FRAME_LEN];
     Std_ReturnType  retVal = E_NOT_OK;
 
+    /* M-09: Validate register address first */
+    if (IsValidRegisterAddress_Tps2hcs08(addr) == FALSE)
+    {
+        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+            "[TPS2HCS08] INVALID REGISTER ADDRESS (RESERVED): dev=%d addr=0x%02X\r\n",
+            devIdx, addr);
+        return E_NOT_OK;
+    }
+
     if ((devIdx < TPS2HCS08_DEV_MAX) && (readValue != NULL_PTR))
     {
         txBuf[0] = (uint8)(TPS2HCS08_SPI_CMD_READ | (addr & TPS2HCS08_SPI_ADDR_MASK));
+        /* M-12: Read frame data bytes must be 0x00 (datasheet p.27).
+         * Write frame uses actual data, read frame ignores these bytes.
+         */
         txBuf[1] = 0x00u;
         txBuf[2] = 0x00u;
 
