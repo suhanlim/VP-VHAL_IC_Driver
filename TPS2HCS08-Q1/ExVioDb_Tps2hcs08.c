@@ -46,6 +46,8 @@
 #define TPS2HCS08_TICK_WD_READ          TPS2HCS08_MS_TO_TICK(100u)
 /* AUTO_LPM entry monitoring timeout : 5s                                     */
 #define TPS2HCS08_TICK_LPM_TIMEOUT      TPS2HCS08_MS_TO_TICK(5000u)
+/* Phase 2: Issue #5 & #6 - Setup scan state timeout : 1s per blocking state  */
+#define TPS2HCS08_TICK_STATE_TIMEOUT    TPS2HCS08_MS_TO_TICK(1000u)
 
 /* register write skip mask ( DB parameter mapping failure )                  */
 #define TPS2HCS08_SKIP_PWM              (0x0001u)   /* Eh  PWM_CHx            */
@@ -140,9 +142,21 @@ D_STATIC uint16                  exVioDbTps2hcs08SkipMask[TPS2HCS08_DEV_MAX][TPS
 D_STATIC uint16                  exVioDbTps2hcs08WaitTick;
 D_STATIC uint16                  exVioDbTps2hcs08WdTick;
 D_STATIC uint16                  exVioDbTps2hcs08LpmTick;
+
+/* Phase 2: Issue #5 & #6 - Setup scan state timeout counter.
+ * Prevents infinite loops in blocking states (WAIT_READY, CLEAR_POR, CONFIG_*, etc.)
+ * Timeout triggers transition to ERROR state.
+ */
+D_STATIC uint16                  exVioDbTps2hcs08StateTimeout;
+
 D_STATIC boolean                 exVioDbTps2hcs08SleepReq;
 D_STATIC boolean                 exVioDbTps2hcs08WakeUpReq;
 D_STATIC boolean                 exVioDbTps2hcs08ReCfgReq;
+
+/* Phase 2: Issue #9 - Execution time monitoring statistics.
+ * Tracks RunScan performance to detect timing issues.
+ */
+D_STATIC tTps2hcs08ExecStats     exVioDbTps2hcs08ExecStats;
 
 /*==============================================================================
  *  VEHICLE IO SIGNAL DB -> IC REGISTER MAPPING TABLE
@@ -754,6 +768,7 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
     exVioDbTps2hcs08WaitTick   = 0u;
     exVioDbTps2hcs08WdTick     = 0u;
     exVioDbTps2hcs08LpmTick    = 0u;
+    exVioDbTps2hcs08StateTimeout = 0u;  /* Phase 2: Issue #5 & #6 */
     exVioDbTps2hcs08SleepReq   = FALSE;
     exVioDbTps2hcs08WakeUpReq  = FALSE;
     exVioDbTps2hcs08ReCfgReq   = FALSE;
@@ -768,6 +783,12 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
         exVioDbTps2hcs08Retry[devIdx].devIdRead    = 0u;
         exVioDbTps2hcs08Retry[devIdx].diagRead     = 0u;
     }
+
+    /* Phase 2: Issue #9 - Initialize execution time statistics */
+    exVioDbTps2hcs08ExecStats.lastExecTime_us = 0u;
+    exVioDbTps2hcs08ExecStats.maxExecTime_us  = 0u;
+    exVioDbTps2hcs08ExecStats.avgExecTime_us  = 0u;
+    exVioDbTps2hcs08ExecStats.execCount       = 0u;
 
     /* M-05: Initial state is INIT, not ACTIVE.
      * Chip is in SLEEP state after power-on/reset.
@@ -1722,25 +1743,64 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
             break;
 
         case TPS2HCS08_SETUP_SCN_WAIT_READY:                /* process #4     */
-            if (ExVioDb_WaitReadyDone_Tps2hcs08() == TPS2HCS08_COMPLETE)
+            /* Phase 2: Issue #5 & #6 - Timeout check */
+            if (exVioDbTps2hcs08StateTimeout >= TPS2HCS08_TICK_STATE_TIMEOUT)
+            {
+                TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+                    "[TPS2HCS08] WAIT_READY timeout\r\n");
+                exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_ERROR;
+                exVioDbTps2hcs08StateTimeout = 0u;
+            }
+            else if (ExVioDb_WaitReadyDone_Tps2hcs08() == TPS2HCS08_COMPLETE)
             {
                 TF_STD_SWC_MNGR_LOG_SHEL_LOG_I(TAG_EEVP_EXVIODB,
                     "[TPS2HCS08] INIT & ABIST DONE -> CONFIG STATE...\r\n");
+                exVioDbTps2hcs08StateTimeout = 0u;
                 exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_CLEAR_POR;
+            }
+            else
+            {
+                exVioDbTps2hcs08StateTimeout++;
             }
             break;
 
         case TPS2HCS08_SETUP_SCN_CLEAR_POR:                 /* process #4     */
-            if (ExVioDb_ClearPorFault_Tps2hcs08() == TPS2HCS08_COMPLETE)
+            /* Phase 2: Issue #5 & #6 - Timeout check */
+            if (exVioDbTps2hcs08StateTimeout >= TPS2HCS08_TICK_STATE_TIMEOUT)
             {
+                TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+                    "[TPS2HCS08] CLEAR_POR timeout\r\n");
+                exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_ERROR;
+                exVioDbTps2hcs08StateTimeout = 0u;
+            }
+            else if (ExVioDb_ClearPorFault_Tps2hcs08() == TPS2HCS08_COMPLETE)
+            {
+                exVioDbTps2hcs08StateTimeout = 0u;
                 exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_CONFIG_WRITE;
+            }
+            else
+            {
+                exVioDbTps2hcs08StateTimeout++;
             }
             break;
 
         case TPS2HCS08_SETUP_SCN_CONFIG_WRITE:              /* process #5     */
-            if (ExVioDb_WriteConfig_Tps2hcs08() == TPS2HCS08_COMPLETE)
+            /* Phase 2: Issue #5 & #6 - Timeout check */
+            if (exVioDbTps2hcs08StateTimeout >= TPS2HCS08_TICK_STATE_TIMEOUT)
             {
+                TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+                    "[TPS2HCS08] CONFIG_WRITE timeout\r\n");
+                exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_ERROR;
+                exVioDbTps2hcs08StateTimeout = 0u;
+            }
+            else if (ExVioDb_WriteConfig_Tps2hcs08() == TPS2HCS08_COMPLETE)
+            {
+                exVioDbTps2hcs08StateTimeout = 0u;
                 exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_CONFIG_VERIFY;
+            }
+            else
+            {
+                exVioDbTps2hcs08StateTimeout++;
             }
             break;
 
@@ -2310,6 +2370,15 @@ D_STATIC void ExVioDb_EvalChFaultLog_Tps2hcs08(uint8 devIdx, uint8 chIdx)
  *----------------------------------------------------------------------------*/
 void ExVioDb_RunScnTps2hcs08Reg(void)
 {
+#ifdef TPS2HCS08_ENABLE_EXEC_TIME_MONITORING
+    /* Phase 2: Issue #9 - Start execution time measurement.
+     * Requires GetMicroseconds() function from BSW/HAL layer.
+     * Enable by defining TPS2HCS08_ENABLE_EXEC_TIME_MONITORING in project config.
+     */
+    extern uint32 GetMicroseconds(void);
+    uint32 startTime = GetMicroseconds();
+#endif
+
     /* re-configuration request by POR detection ( process #5 restart )       */
     if (exVioDbTps2hcs08ReCfgReq == TRUE)
     {
@@ -2463,6 +2532,28 @@ void ExVioDb_RunScnTps2hcs08Reg(void)
             exVioDbTps2hcs08RunState = TPS2HCS08_RUN_ACTIVE;
             break;
     }
+
+#ifdef TPS2HCS08_ENABLE_EXEC_TIME_MONITORING
+    /* Phase 2: Issue #9 - Calculate and update execution time statistics */
+    {
+        uint32 execTime = GetMicroseconds() - startTime;
+
+        exVioDbTps2hcs08ExecStats.lastExecTime_us = execTime;
+        exVioDbTps2hcs08ExecStats.execCount++;
+
+        /* Update maximum if new peak */
+        if (execTime > exVioDbTps2hcs08ExecStats.maxExecTime_us)
+        {
+            exVioDbTps2hcs08ExecStats.maxExecTime_us = execTime;
+            TF_STD_SWC_MNGR_LOG_SHEL_LOG_W(TAG_EEVP_EXVIODB,
+                "[TPS2HCS08] New max exec time: %lu us\r\n", execTime);
+        }
+
+        /* Exponential moving average: avg_new = (avg_old * 7 + new) / 8 */
+        exVioDbTps2hcs08ExecStats.avgExecTime_us =
+            (exVioDbTps2hcs08ExecStats.avgExecTime_us * 7u + execTime) / 8u;
+    }
+#endif
 }
 
 /*******************************************************************************

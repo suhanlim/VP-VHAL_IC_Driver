@@ -616,6 +616,18 @@ typedef struct
 #define TPS2HCS08_MAX_RETRY_DEV_ID_READ    (5u)   /* DEV_ID read attempts */
 #define TPS2HCS08_MAX_RETRY_DIAG_READ      (3u)   /* Diagnostic read attempts */
 
+/* Phase 2: Issue #9 - Execution time monitoring statistics.
+ * Tracks RunScan execution time to detect performance issues.
+ * NOTE: Requires GetMicroseconds() function from BSW/HAL layer.
+ */
+typedef struct
+{
+    uint32 lastExecTime_us;  /* Last execution time in microseconds */
+    uint32 maxExecTime_us;   /* Maximum execution time ever recorded */
+    uint32 avgExecTime_us;   /* Moving average (exponential, factor 7/8) */
+    uint32 execCount;        /* Total execution count */
+} tTps2hcs08ExecStats;
+
 /*==============================================================================
  * 11. DEVICE CONTEXT
  *============================================================================*/
