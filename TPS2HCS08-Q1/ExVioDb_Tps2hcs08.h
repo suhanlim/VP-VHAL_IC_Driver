@@ -574,7 +574,8 @@ typedef enum
     TPS2HCS08_SETUP_SCN_DIAG_JUDGE_STB,   /* #6  Open/Short diag : STB judge  */
     TPS2HCS08_SETUP_SCN_DIAG_REPORT,      /* #6  diagnostic report output     */
     TPS2HCS08_SETUP_SCN_ACTIVE_ENTRY,     /* #8  B+ always on channel ON      */
-    TPS2HCS08_SETUP_SCN_COMPLETE          /*     setup scan complete          */
+    TPS2HCS08_SETUP_SCN_COMPLETE,         /*     setup scan complete          */
+    TPS2HCS08_SETUP_SCN_ERROR             /* Phase 2: Issue #5 & #6 - Fatal error state */
 } tTps2hcs08SetupScnState;
 
 /* run state (used in EXVIODB_STATE_RUN)                                      */
@@ -595,7 +596,28 @@ typedef enum
 #define TPS2HCS08_BUSY                    (0u)
 
 /*==============================================================================
- * 10. DEVICE CONTEXT
+ * 10. RETRY COUNTER (Phase 2: Issue #2 & #7)
+ *============================================================================*/
+/* Retry counters for robustness against transient SPI errors.
+ * Each setup scan phase tracks retry attempts per device.
+ * Exceeding max retries transitions to ERROR state.
+ */
+typedef struct
+{
+    uint8 configWrite;      /* Write configuration registers to chip */
+    uint8 configVerify;     /* Read-back verification of config */
+    uint8 devIdRead;        /* DEV_ID register read during detection */
+    uint8 diagRead;         /* Diagnostic register read failures */
+} tTps2hcs08RetryCounters;
+
+/* Maximum retry limits before declaring failure */
+#define TPS2HCS08_MAX_RETRY_CONFIG_WRITE   (5u)   /* Config write attempts */
+#define TPS2HCS08_MAX_RETRY_CONFIG_VERIFY  (10u)  /* Verification attempts */
+#define TPS2HCS08_MAX_RETRY_DEV_ID_READ    (5u)   /* DEV_ID read attempts */
+#define TPS2HCS08_MAX_RETRY_DIAG_READ      (3u)   /* Diagnostic read attempts */
+
+/*==============================================================================
+ * 11. DEVICE CONTEXT
  *============================================================================*/
 typedef struct
 {
@@ -665,7 +687,7 @@ typedef struct
 } tTps2hcs08SpiRuntime;
 
 /*==============================================================================
- * 11. PUBLIC API
+ * 12. PUBLIC API
  *============================================================================*/
 extern void  ExVioDb_InitRegValue_Tps2hcs08(void);
 extern void  ExVioDb_SetupScnTps2hcs08Reg(void);

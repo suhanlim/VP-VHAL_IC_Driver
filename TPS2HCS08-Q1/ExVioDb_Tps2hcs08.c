@@ -85,6 +85,12 @@ D_STATIC tTps2hcs08Ctx           exVioDbTps2hcs08Ctx[TPS2HCS08_DEV_MAX];
  * Now properly encapsulated with other per-device data.
  */
 
+/* Phase 2: Issue #2 & #7 - Retry counters for robustness.
+ * Tracks retry attempts for each setup scan phase per device.
+ * Prevents infinite loops on persistent SPI errors by enforcing max retry limits.
+ */
+D_STATIC tTps2hcs08RetryCounters exVioDbTps2hcs08Retry[TPS2HCS08_DEV_MAX];
+
 /* M-09: Valid register address whitelist (28 registers).
  * Datasheet p.65 Table 8-13: addresses 0x06, 0x08, 0x0C, 0x1F~0x7F are RESERVED.
  * Attempting to write/read reserved addresses results in silent ignore by chip.
@@ -316,6 +322,7 @@ D_STATIC const tTps2hcs08FaultLogEntry exVioDbTps2hcs08ChLogTbl[] =
  *============================================================================*/
 /* --- SPI access ---------------------------------------------------------- */
 D_STATIC boolean        IsValidRegisterAddress_Tps2hcs08(uint8 addr);
+D_STATIC void           ExVioDb_ValidateSdoHeader_Tps2hcs08(uint8 devIdx, uint8 sdoHeader);
 D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 payload);
 D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 *readValue);
 D_STATIC uint16        *ExVioDb_GetWritableShadowPtr_Tps2hcs08(uint8 devIdx, uint8 addr);
@@ -456,6 +463,43 @@ D_STATIC boolean IsValidRegisterAddress_Tps2hcs08(uint8 addr)
 }
 
 /*------------------------------------------------------------------------------
+ *  ExVioDb_ValidateSdoHeader_Tps2hcs08
+ *      Phase 2: Issue #3 - SDO Header Validation
+ *      Validates SDO header (GLOBAL_FAULT_TYPE[15:8]) immediately after SPI transaction.
+ *      Provides faster fault detection than waiting for 100ms watchdog cycle.
+ *      SDO header bits [4:0] correspond to critical faults (datasheet p.71 Table 8-24).
+ *----------------------------------------------------------------------------*/
+D_STATIC void ExVioDb_ValidateSdoHeader_Tps2hcs08(uint8 devIdx, uint8 sdoHeader)
+{
+    /* Check each fault bit in SDO header (bits [4:0]) */
+    if ((sdoHeader & 0x01u) != 0u)  /* VBB_UVLO */
+    {
+        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+            "[TPS2HCS08] dev=%d SDO HEADER: VBB_UVLO detected\r\n", devIdx);
+    }
+    if ((sdoHeader & 0x02u) != 0u)  /* VBB_UV_WRN */
+    {
+        TF_STD_SWC_MNGR_LOG_SHEL_LOG_W(TAG_EEVP_EXVIODB,
+            "[TPS2HCS08] dev=%d SDO HEADER: VBB_UV_WRN detected\r\n", devIdx);
+    }
+    if ((sdoHeader & 0x04u) != 0u)  /* VDD_UVLO */
+    {
+        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+            "[TPS2HCS08] dev=%d SDO HEADER: VDD_UVLO detected\r\n", devIdx);
+    }
+    if ((sdoHeader & 0x08u) != 0u)  /* WD_ERR */
+    {
+        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+            "[TPS2HCS08] dev=%d SDO HEADER: WD_ERR detected\r\n", devIdx);
+    }
+    if ((sdoHeader & 0x10u) != 0u)  /* SPI_ERR */
+    {
+        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+            "[TPS2HCS08] dev=%d SDO HEADER: SPI_ERR detected\r\n", devIdx);
+    }
+}
+
+/*------------------------------------------------------------------------------
  *  ExVioDb_WriteRegister_Tps2hcs08
  *      24bit write frame : [23]=1 [22:16]=ADDR [15:0]=DATA
  *----------------------------------------------------------------------------*/
@@ -490,6 +534,9 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr
             {
                 /* SDO[23:16] is always GLOBAL_FAULT_TYPE[15:8] */
                 exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
+
+                /* Phase 2: Issue #3 - Validate SDO header immediately */
+                ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]);
 
                 /* M-14: Update shadow ONLY on successful SPI transfer.
                  * If SPI fails, shadow retains last known good value.
@@ -548,11 +595,18 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr,
         if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
                                                TPS2HCS08_SPI_FRAME_LEN) == E_OK)
         {
+            /* Phase 2: Issue #3 - Validate SDO header from 1st frame */
+            ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]);
+
             /* 2nd frame : dummy read, SDO carries the data of the 1st frame  */
             if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
                                                    TPS2HCS08_SPI_FRAME_LEN) == E_OK)
             {
                 exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
+
+                /* Phase 2: Issue #3 - Validate SDO header from 2nd frame */
+                ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]);
+
                 *readValue = (uint16)(((uint16)rxBuf[1] << 8u) | (uint16)rxBuf[2]);
                 retVal = E_OK;
             }
@@ -703,6 +757,18 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
     exVioDbTps2hcs08SleepReq   = FALSE;
     exVioDbTps2hcs08WakeUpReq  = FALSE;
     exVioDbTps2hcs08ReCfgReq   = FALSE;
+
+    /* Phase 2: Issue #2 & #7 - Initialize retry counters to zero.
+     * Counters will be incremented on failures and reset on success.
+     */
+    for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
+    {
+        exVioDbTps2hcs08Retry[devIdx].configWrite  = 0u;
+        exVioDbTps2hcs08Retry[devIdx].configVerify = 0u;
+        exVioDbTps2hcs08Retry[devIdx].devIdRead    = 0u;
+        exVioDbTps2hcs08Retry[devIdx].diagRead     = 0u;
+    }
+
     /* M-05: Initial state is INIT, not ACTIVE.
      * Chip is in SLEEP state after power-on/reset.
      * Transition to ACTIVE only after setup scan complete and device ready.
@@ -1681,6 +1747,12 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
         case TPS2HCS08_SETUP_SCN_CONFIG_VERIFY:             /* process #5     */
             if (ExVioDb_VerifyConfig_Tps2hcs08() == TPS2HCS08_COMPLETE)
             {
+                /* Phase 2: Success - reset retry counters */
+                for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
+                {
+                    exVioDbTps2hcs08Retry[devIdx].configVerify = 0u;
+                }
+
                 TF_STD_SWC_MNGR_LOG_SHEL_LOG_I(TAG_EEVP_EXVIODB,
                     "[TPS2HCS08] REGISTER CONFIGURATION DONE...\r\n");
                 exVioDbTps2hcs08WaitTick      = 0u;
@@ -1688,7 +1760,35 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
             }
             else
             {
-                exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_CONFIG_WRITE;
+                /* Phase 2: Failure - check retry limit */
+                boolean allFailed = TRUE;
+
+                for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
+                {
+                    if (exVioDbTps2hcs08Ctx[devIdx].devPresent == TRUE)
+                    {
+                        exVioDbTps2hcs08Retry[devIdx].configVerify++;
+
+                        if (exVioDbTps2hcs08Retry[devIdx].configVerify < TPS2HCS08_MAX_RETRY_CONFIG_VERIFY)
+                        {
+                            allFailed = FALSE;
+                        }
+                    }
+                }
+
+                if (allFailed == TRUE)
+                {
+                    /* All devices exceeded retry limit */
+                    TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+                        "[TPS2HCS08] CONFIG_VERIFY failed after %d retries\r\n",
+                        TPS2HCS08_MAX_RETRY_CONFIG_VERIFY);
+                    exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_ERROR;
+                }
+                else
+                {
+                    /* Retry configuration */
+                    exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_CONFIG_WRITE;
+                }
             }
             break;
 
@@ -1771,6 +1871,17 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
 
         case TPS2HCS08_SETUP_SCN_COMPLETE:
             /* nothing */
+            break;
+
+        case TPS2HCS08_SETUP_SCN_ERROR:
+            /* Phase 2: Issue #5 & #6 - Fatal error state.
+             * Setup scan failed after exceeding max retries or timeout.
+             * Log error details and remain in ERROR state.
+             * Recovery requires system reset or power cycle.
+             */
+            TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+                "[TPS2HCS08] SETUP SCAN ERROR - halted\r\n");
+            /* Remain in ERROR state - no auto-recovery */
             break;
 
         default:
