@@ -32,6 +32,12 @@
 #define TPS2HCS08_DEV_ID_VER_A            (0xFFF0u)
 #define TPS2HCS08_DEV_ID_VER_B            (0xFFF1u)
 
+/* M-16: Project target version - only Ver A is supported.
+ * Ver B has different register behavior (e.g., CHx_ON control).
+ * Reject Ver B chips explicitly during initialization.
+ */
+#define TPS2HCS08_TARGET_VERSION          TPS2HCS08_DEV_ID_VER_A
+
 /*==============================================================================
  *  2. SPI FRAME DEFINITION  (24bit frame, CRC disabled)
  *      SDI  : [23]=R/W  [22:16]=ADDR[6:0]  [15:0]=DATA
@@ -336,6 +342,10 @@ typedef union
         unsigned ISNS_SCALE_CHx         : 1;    /* [10]     */
         unsigned RESERVED               : 2;    /* [12:11]  */
         unsigned ISNS_DIS_CHx           : 1;    /* [13]     */
+        /* M-07: Datasheet has typo - p.86 says "VDS_SNS_DIS_CH1", p.99 says "VDSSNS_DIS_CH2".
+         * Both refer to same bit[14], same function. Using unified name VDS_SNS_DIS_CHx.
+         * CH1/CH2 share this type definition - verified identical bit layout.
+         */
         unsigned VDS_SNS_DIS_CHx        : 1;    /* [14]     */
         unsigned VSNS_DIS_CHx           : 1;    /* [15]     */
     } bits;
@@ -390,9 +400,12 @@ typedef union
 #define TPS2HCS08_LH_IN_OFF               (0x2u)
 #define TPS2HCS08_LH_IN_ON                (0x3u)
 
-/* DEV_CONFIG.WD_TO */
-#define TPS2HCS08_WD_TO_400US             (0x0u)
-#define TPS2HCS08_WD_TO_400MS             (0x1u)  /* << project default        */
+/* DEV_CONFIG.WD_TO - CRITICAL: Watch the unit difference!
+ * Datasheet p.28 Table 8-4: 00b=400µs / 01b=400ms
+ * Unit trap: microseconds vs milliseconds - easy to confuse!
+ */
+#define TPS2HCS08_WD_TO_400US             (0x0u)  /* 400 microseconds (NOT ms!) */
+#define TPS2HCS08_WD_TO_400MS             (0x1u)  /* 400 milliseconds - project default */
 #define TPS2HCS08_WD_TO_800MS             (0x2u)
 #define TPS2HCS08_WD_TO_1200MS            (0x3u)
 
@@ -529,7 +542,8 @@ typedef enum
 /* run state (used in EXVIODB_STATE_RUN)                                      */
 typedef enum
 {
-    TPS2HCS08_RUN_ACTIVE = 0,             /* #9,#10 normal ACTIVE operation   */
+    TPS2HCS08_RUN_INIT = 0,               /* M-05: Initial state after reset/power-on */
+    TPS2HCS08_RUN_ACTIVE,                 /* #9,#10 normal ACTIVE operation   */
     TPS2HCS08_RUN_LPM_PREPARE,            /* #11 sleep entry preparation      */
     TPS2HCS08_RUN_LPM_ENTRY,              /* #12 AUTO_LPM_ENTRY = 1           */
     TPS2HCS08_RUN_LPM_WAIT_STATUS,        /* #13,#14 LPM_STATUS = 1 wait      */
@@ -555,6 +569,11 @@ typedef struct
 
     /* --- last read status ------------------------------------------------ */
     tTps2hcs08GlobalFaultType   globalFault;
+    /* M-06: SDO header from last SPI transaction.
+     * Contains GLOBAL_FAULT_TYPE[15:8] latched at CS falling edge (datasheet p.26).
+     * Updated on every SPI transaction for immediate fault detection.
+     */
+    uint8                       sdoHeader;
     tTps2hcs08FaultMask         faultMask;
     tTps2hcs08SwState           swState;
     tTps2hcs08DevConfig         devConfig;

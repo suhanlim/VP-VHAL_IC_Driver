@@ -80,8 +80,10 @@ D_STATIC tTps2hcs08RunState      exVioDbTps2hcs08RunState;
 
 D_STATIC tTps2hcs08Ctx           exVioDbTps2hcs08Ctx[TPS2HCS08_DEV_MAX];
 
-/* SDO header ( GLOBAL_FAULT_TYPE[15:8] ) of the last SPI transaction         */
-D_STATIC uint8                   exVioDbTps2hcs08SdoHeader[TPS2HCS08_DEV_MAX];
+/* M-06: SDO header moved to context structure (tTps2hcs08Ctx.sdoHeader).
+ * Previously was global array exVioDbTps2hcs08SdoHeader[].
+ * Now properly encapsulated with other per-device data.
+ */
 
 /* register write skip mask by DB parsing result                              */
 D_STATIC uint16                  exVioDbTps2hcs08SkipMask[TPS2HCS08_DEV_MAX][TPS2HCS08_CH_MAX];
@@ -414,7 +416,7 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr
                                                    TPS2HCS08_SPI_FRAME_LEN) == E_OK)
             {
                 /* SDO[23:16] is always GLOBAL_FAULT_TYPE[15:8] */
-                exVioDbTps2hcs08SdoHeader[devIdx] = rxBuf[0];
+                exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
                 *pShadow = payload;
                 retVal = E_OK;
             }
@@ -460,7 +462,7 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr,
             if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
                                                    TPS2HCS08_SPI_FRAME_LEN) == E_OK)
             {
-                exVioDbTps2hcs08SdoHeader[devIdx] = rxBuf[0];
+                exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
                 *readValue = (uint16)(((uint16)rxBuf[1] << 8u) | (uint16)rxBuf[2]);
                 retVal = E_OK;
             }
@@ -524,6 +526,18 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
         pCtx->adcConfig.bits.ADC_ISNS_DIS         = 0u;   /* ISNS enable(I2T)  */
         pCtx->adcConfig.bits.ADC_DIS              = 0u;
 
+        /* M-03: VBB measurement configuration.
+         * Reset value has ADC_VBB_DIS=1 (disabled).
+         * Enable only if project requires VBB monitoring.
+         * If enabled, must read ADC_RESULT_VBB (Bh) in periodic diagnostics.
+         */
+#if defined(TPS2HCS08_USE_VBB_MEASUREMENT)
+        pCtx->adcConfig.bits.ADC_VBB_DIS          = 0u;   /* Enable VBB measurement */
+#else
+        /* VBB measurement disabled (reset default = 1) - no action needed */
+        /* If VBB measurement needed in future, define TPS2HCS08_USE_VBB_MEASUREMENT */
+#endif
+
         /* --- 3h LPM ------------------------------------------------------- */
         /* EDIT::Init 이슈 pdf 70p 기준 pCtx->lpm.word = 0xFF80u 수정          */
         pCtx->lpm.word                            = 0xFF80u;
@@ -537,7 +551,12 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
             /* --- Fh ILIM_CONFIG_CHx ( reset = 0088h ) -------------------- */
             pCtx->ilimCfgCh[chIdx].word           = 0x0000u;
             pCtx->ilimCfgCh[chIdx].bits.CAP_CHRG_CHx        = TPS2HCS08_CAP_CHRG_NONE;
-            pCtx->ilimCfgCh[chIdx].bits.I2T_EN_CHx          = 1u;
+            /* M-04: I2T_EN initially disabled for safety.
+             * I2T_TRIP=0h + I2T_EN=1 → minimum 8.8A²s active (datasheet p.93)
+             * Could cause unintended trip during init before DB parsing.
+             * DB parsing will enable I2T_EN if required.
+             */
+            pCtx->ilimCfgCh[chIdx].bits.I2T_EN_CHx          = 0u;  /* Disable until DB parsed */
             pCtx->ilimCfgCh[chIdx].bits.INRUSH_DURATION_CHx = 0u;
             pCtx->ilimCfgCh[chIdx].bits.INRUSH_LIMIT_CHx    = 0x8u;  /* 40A    */
             pCtx->ilimCfgCh[chIdx].bits.ILIMIT_SET_CHx      = 0x8u;  /* 40A    */
@@ -585,7 +604,7 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
         pCtx->lpmStatus1Cleared    = FALSE;
         pCtx->devPresent           = FALSE;
 
-        exVioDbTps2hcs08SdoHeader[devIdx] = 0u;
+        exVioDbTps2hcs08Ctx[devIdx].sdoHeader = 0u;
     }
 
     exVioDbTps2hcs08WaitTick   = 0u;
@@ -594,7 +613,11 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
     exVioDbTps2hcs08SleepReq   = FALSE;
     exVioDbTps2hcs08WakeUpReq  = FALSE;
     exVioDbTps2hcs08ReCfgReq   = FALSE;
-    exVioDbTps2hcs08RunState   = TPS2HCS08_RUN_ACTIVE;
+    /* M-05: Initial state is INIT, not ACTIVE.
+     * Chip is in SLEEP state after power-on/reset.
+     * Transition to ACTIVE only after setup scan complete and device ready.
+     */
+    exVioDbTps2hcs08RunState   = TPS2HCS08_RUN_INIT;
     exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_SET_DEF;
 }
 
@@ -767,6 +790,16 @@ D_STATIC void ExVioDb_ParsingOutputTps2hcs08Reg(uint16 sigIndex)
         skipMask |= TPS2HCS08_SKIP_I2T;
     }
 
+    /* M-04: Enable I2T protection after DB parameters are configured.
+     * I2T_EN was initially disabled (=0) for safety during init.
+     * Now that NOM_CUR, I2T_TRIP, ISWCL are set from DB, enable I2T.
+     * If I2T params were not successfully parsed, I2T_EN remains 0.
+     */
+    if ((skipMask & TPS2HCS08_SKIP_I2T) == 0u)
+    {
+        pCtx->ilimCfgCh[chIdx].bits.I2T_EN_CHx = 1u;  /* Enable I2T protection */
+    }
+
     /* --- CT -> CAP_CHRG / INRUSH_DURATION --------------------------------- */
     if (ExVioDb_MapDbParam_Tps2hcs08(exVioDbTps2hcs08MapInrushDur,
             (uint8)(sizeof(exVioDbTps2hcs08MapInrushDur) / sizeof(tTps2hcs08MapEntry)),
@@ -928,11 +961,36 @@ D_STATIC uint8 ExVioDb_WaitReadyDone_Tps2hcs08(void)
 
             if (ExVioDb_ReadRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_DEV_ID, &devId) == E_OK)
             {
-                if ((devId != TPS2HCS08_DEV_ID_VER_A) && (devId != TPS2HCS08_DEV_ID_VER_B))
+                /* M-16: Strict version verification - only accept target version */
+                if (devId == TPS2HCS08_TARGET_VERSION)
                 {
+                    /* Correct version - device is ready */
+                    TF_STD_SWC_MNGR_LOG_SHEL_LOG_I(TAG_EEVP_EXVIODB,
+                        "[TPS2HCS08] dev=%d DEV_ID VERIFIED: 0x%04X (Ver A)\r\n",
+                        devIdx, devId);
+                }
+                else if ((devId == TPS2HCS08_DEV_ID_VER_A) || (devId == TPS2HCS08_DEV_ID_VER_B))
+                {
+                    /* Valid TPS2HCS08 chip, but wrong version for this project */
                     TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-                        "[TPS2HCS08] INVALID DEV_ID. dev=%d id=0x%04X\r\n", devIdx, devId);
+                        "[TPS2HCS08] dev=%d VERSION MISMATCH: read=0x%04X (Ver %c), expected=0x%04X (Ver %c)\r\n",
+                        devIdx, devId,
+                        (devId == TPS2HCS08_DEV_ID_VER_A) ? 'A' : 'B',
+                        TPS2HCS08_TARGET_VERSION,
+                        (TPS2HCS08_TARGET_VERSION == TPS2HCS08_DEV_ID_VER_A) ? 'A' : 'B');
                     retVal = TPS2HCS08_BUSY;
+                    /* Mark device as not present to skip this device */
+                    exVioDbTps2hcs08Ctx[devIdx].devPresent = FALSE;
+                }
+                else
+                {
+                    /* Completely invalid DEV_ID - not a TPS2HCS08 chip */
+                    TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+                        "[TPS2HCS08] dev=%d INVALID DEV_ID: read=0x%04X (expected 0xFFF0/0xFFF1)\r\n",
+                        devIdx, devId);
+                    retVal = TPS2HCS08_BUSY;
+                    /* Mark device as not present to skip this device */
+                    exVioDbTps2hcs08Ctx[devIdx].devPresent = FALSE;
                 }
             }
             else
@@ -1608,8 +1666,9 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
             ExVioDb_ActiveEntry_Tps2hcs08();
             TF_STD_SWC_MNGR_LOG_SHEL_LOG_I(TAG_EEVP_EXVIODB,
                 "[TPS2HCS08] ACTIVE STATE ENTRY DONE...\r\n");
-            exVioDbTps2hcs08WdTick        = 0u;
-            exVioDbTps2hcs08RunState      = TPS2HCS08_RUN_ACTIVE;
+            /* M-05: Don't set RunState here. Let RUN_INIT handler do the transition.
+             * This ensures proper state tracking from INIT -> ACTIVE.
+             */
             exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_COMPLETE;
             break;
 
@@ -2054,6 +2113,21 @@ void ExVioDb_RunScnTps2hcs08Reg(void)
 
     switch (exVioDbTps2hcs08RunState)
     {
+        case TPS2HCS08_RUN_INIT:
+            /* M-05: Initial state after power-on/reset.
+             * Chip is in SLEEP state. Wait for setup scan to complete.
+             * Transition to ACTIVE only when device is ready.
+             */
+            if (exVioDbTps2hcs08SetupScnState == TPS2HCS08_SETUP_SCN_COMPLETE)
+            {
+                TF_STD_SWC_MNGR_LOG_SHEL_LOG_I(TAG_EEVP_EXVIODB,
+                    "[TPS2HCS08] INIT -> ACTIVE (Setup complete)\r\n");
+                exVioDbTps2hcs08WdTick   = 0u;
+                exVioDbTps2hcs08RunState = TPS2HCS08_RUN_ACTIVE;
+            }
+            /* Otherwise, stay in INIT state until setup scan completes */
+            break;
+
         case TPS2HCS08_RUN_ACTIVE:                          /* process #9,#10 */
             /* SPI watchdog periodic read ( immediate read when FLT is LOW )  */
             if ((exVioDbTps2hcs08WdTick >= TPS2HCS08_TICK_WD_READ) ||
