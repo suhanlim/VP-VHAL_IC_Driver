@@ -336,7 +336,7 @@ D_STATIC const tTps2hcs08FaultLogEntry exVioDbTps2hcs08ChLogTbl[] =
  *============================================================================*/
 /* --- SPI access ---------------------------------------------------------- */
 D_STATIC boolean        IsValidRegisterAddress_Tps2hcs08(uint8 addr);
-D_STATIC void           ExVioDb_ValidateSdoHeader_Tps2hcs08(uint8 devIdx, tTps2hcs08SdoHeader sdoHeader);
+D_STATIC void           ExVioDb_ValidateSdoHeader_Tps2hcs08(uint8 devIdx, uint8 sdoHeader);
 D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 payload);
 D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 *readValue);
 D_STATIC uint16        *ExVioDb_GetWritableShadowPtr_Tps2hcs08(uint8 devIdx, uint8 addr);
@@ -479,51 +479,37 @@ D_STATIC boolean IsValidRegisterAddress_Tps2hcs08(uint8 addr)
 /*------------------------------------------------------------------------------
  *  ExVioDb_ValidateSdoHeader_Tps2hcs08
  *      Phase 2: Issue #3 - SDO Header Validation
- *      Validates SDO header (GLOBAL_FAULT_TYPE[7:0]) immediately after SPI transaction.
+ *      Validates SDO header (GLOBAL_FAULT_TYPE[15:8]) immediately after SPI transaction.
  *      Provides faster fault detection than waiting for 100ms watchdog cycle.
- *      Uses bitfield access for type-safe fault checking.
+ *      SDO header bits [4:0] correspond to critical faults (datasheet p.71 Table 8-24).
  *----------------------------------------------------------------------------*/
-D_STATIC void ExVioDb_ValidateSdoHeader_Tps2hcs08(uint8 devIdx, tTps2hcs08SdoHeader sdoHeader)
+D_STATIC void ExVioDb_ValidateSdoHeader_Tps2hcs08(uint8 devIdx, uint8 sdoHeader)
 {
-    /* Critical faults - trigger ERROR level logs */
-    if (sdoHeader.bits.VBB_UVLO == 1u)
+    /* Check each fault bit in SDO header (bits [4:0]) */
+    if ((sdoHeader & 0x01u) != 0u)  /* VBB_UVLO */
     {
         TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
             "[TPS2HCS08] dev=%d SDO HEADER: VBB_UVLO detected\r\n", devIdx);
     }
-    if (sdoHeader.bits.VDD_UVLO == 1u)
-    {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] dev=%d SDO HEADER: VDD_UVLO detected\r\n", devIdx);
-    }
-    if (sdoHeader.bits.WD_ERR == 1u)
-    {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] dev=%d SDO HEADER: WD_ERR detected\r\n", devIdx);
-    }
-    if (sdoHeader.bits.SPI_ERR == 1u)
-    {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] dev=%d SDO HEADER: SPI_ERR detected\r\n", devIdx);
-    }
-
-    /* Warning faults - trigger WARNING level logs */
-    if (sdoHeader.bits.VBB_UV_WRN == 1u)
+    if ((sdoHeader & 0x02u) != 0u)  /* VBB_UV_WRN */
     {
         TF_STD_SWC_MNGR_LOG_SHEL_LOG_W(TAG_EEVP_EXVIODB,
             "[TPS2HCS08] dev=%d SDO HEADER: VBB_UV_WRN detected\r\n", devIdx);
     }
-
-    /* Informational status bits - log if needed for debugging */
-    if (sdoHeader.bits.POR == 1u)
+    if ((sdoHeader & 0x04u) != 0u)  /* VDD_UVLO */
     {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_I(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] dev=%d SDO HEADER: POR flag set\r\n", devIdx);
+        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+            "[TPS2HCS08] dev=%d SDO HEADER: VDD_UVLO detected\r\n", devIdx);
     }
-    if (sdoHeader.bits.LIMPHOME_STAT == 1u)
+    if ((sdoHeader & 0x08u) != 0u)  /* WD_ERR */
     {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_W(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] dev=%d SDO HEADER: LIMPHOME_STAT active\r\n", devIdx);
+        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+            "[TPS2HCS08] dev=%d SDO HEADER: WD_ERR detected\r\n", devIdx);
+    }
+    if ((sdoHeader & 0x10u) != 0u)  /* SPI_ERR */
+    {
+        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+            "[TPS2HCS08] dev=%d SDO HEADER: SPI_ERR detected\r\n", devIdx);
     }
 }
 
@@ -560,11 +546,11 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr
             if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
                                                    TPS2HCS08_SPI_FRAME_LEN) == E_OK)
             {
-                /* SDO[23:16] contains GLOBAL_FAULT_TYPE[7:0] */
-                exVioDbTps2hcs08Ctx[devIdx].sdoHeader.byte = rxBuf[0];
+                /* SDO[23:16] is always GLOBAL_FAULT_TYPE[15:8] */
+                exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
 
                 /* Phase 2: Issue #3 - Validate SDO header immediately */
-                ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, exVioDbTps2hcs08Ctx[devIdx].sdoHeader);
+                ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]);
 
                 /* M-14: Update shadow ONLY on successful SPI transfer.
                  * If SPI fails, shadow retains last known good value.
@@ -624,18 +610,16 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr,
                                                TPS2HCS08_SPI_FRAME_LEN) == E_OK)
         {
             /* Phase 2: Issue #3 - Validate SDO header from 1st frame */
-            tTps2hcs08SdoHeader sdo1st;
-            sdo1st.byte = rxBuf[0];
-            ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, sdo1st);
+            ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]);
 
             /* 2nd frame : dummy read, SDO carries the data of the 1st frame  */
             if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
                                                    TPS2HCS08_SPI_FRAME_LEN) == E_OK)
             {
-                exVioDbTps2hcs08Ctx[devIdx].sdoHeader.byte = rxBuf[0];
+                exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
 
                 /* Phase 2: Issue #3 - Validate SDO header from 2nd frame */
-                ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, exVioDbTps2hcs08Ctx[devIdx].sdoHeader);
+                ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]);
 
                 *readValue = (uint16)(((uint16)rxBuf[1] << 8u) | (uint16)rxBuf[2]);
                 retVal = E_OK;
@@ -778,7 +762,7 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
         pCtx->lpmStatus1Cleared    = FALSE;
         pCtx->devPresent           = FALSE;
 
-        exVioDbTps2hcs08Ctx[devIdx].sdoHeader.byte = 0u;
+        exVioDbTps2hcs08Ctx[devIdx].sdoHeader = 0u;
     }
 
     exVioDbTps2hcs08WaitTick   = 0u;
