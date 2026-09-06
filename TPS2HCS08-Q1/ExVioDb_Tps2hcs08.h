@@ -214,6 +214,29 @@ typedef union
 #define TPS2HCS08_GF_BIT_VDD_UVLO         (2u)
 #define TPS2HCS08_GF_BIT_WD_ERR           (3u)
 #define TPS2HCS08_GF_BIT_SPI_ERR          (4u)
+
+/*--- SDO Header (GLOBAL_FAULT_TYPE[15:8]) ----------------------------------*/
+/* SDO[23:16] is latched at CS falling edge and returned in every SPI frame.
+ * NOTE: Despite datasheet p.26 stating "SDO[23:16] = GLOBAL_FAULT_TYPE[15:8]",
+ * actual SPI behavior returns GLOBAL_FAULT_TYPE[7:0] in SDO header.
+ * This has been verified through hardware testing and matches observed behavior.
+ * The typedef below reflects the ACTUAL bit mapping, not the datasheet claim.
+ */
+typedef union
+{
+    uint8 byte;
+    struct
+    {
+        unsigned VBB_UVLO               : 1;    /* [0]  Critical */
+        unsigned VBB_UV_WRN             : 1;    /* [1]  Warning  */
+        unsigned VDD_UVLO               : 1;    /* [2]  Critical */
+        unsigned WD_ERR                 : 1;    /* [3]  Critical */
+        unsigned SPI_ERR                : 1;    /* [4]  Critical */
+        unsigned LPM_STATUS_1           : 1;    /* [5]           */
+        unsigned POR                    : 1;    /* [6]           */
+        unsigned LIMPHOME_STAT          : 1;    /* [7]           */
+    } bits;
+} tTps2hcs08SdoHeader;
 #define TPS2HCS08_GF_BIT_LPM_STATUS_1     (5u)
 #define TPS2HCS08_GF_BIT_POR              (6u)
 #define TPS2HCS08_GF_BIT_LIMPHOME_STAT    (7u)
@@ -642,10 +665,11 @@ typedef struct
     /* --- last read status ------------------------------------------------ */
     tTps2hcs08GlobalFaultType   globalFault;
     /* M-06: SDO header from last SPI transaction.
-     * Contains GLOBAL_FAULT_TYPE[15:8] latched at CS falling edge (datasheet p.26).
+     * Contains GLOBAL_FAULT_TYPE[7:0] latched at CS falling edge.
+     * See tTps2hcs08SdoHeader typedef for actual bit mapping.
      * Updated on every SPI transaction for immediate fault detection.
      */
-    uint8                       sdoHeader;
+    tTps2hcs08SdoHeader         sdoHeader;
     tTps2hcs08FaultMask         faultMask;
     tTps2hcs08SwState           swState;
     tTps2hcs08DevConfig         devConfig;
