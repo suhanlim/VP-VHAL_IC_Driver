@@ -461,9 +461,10 @@
    * - Polynomial: X^4 + X + 1 (0x3)
    * - Initial value: 0xF (1111b)
    * - Input: 24-bit frame [23:0]
-   * - Output: 4-bit CRC in byte[3] bits [7:4], bits [3:0] = 0
+   * - Output: 4-bit CRC in byte[3] bits [3:0], bits [7:4] = 0
+   *   (clocks 25-28 = 0000, clocks 29-32 = CRC3..CRC0, Fig 8-10/8-11)
    *
-   * Reference: Datasheet Section 8.3.4.1 (p.26)
+   * Reference: Datasheet p.26 (algorithm), p.27 (frame placement)
    */
 
   // Function naming

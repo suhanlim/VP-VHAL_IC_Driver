@@ -78,9 +78,10 @@
  *      - Polynomial: X^4 + X + 1
  *      - Initial: 0xF
  *      - Input: 24-bit frame (CMD + ADDR + DATA)
- *      - Output: 4-bit appended as byte[3][7:4], byte[3][3:0]=0
+ *      - Output: 4-bit CRC appended as byte[3][3:0], byte[3][7:4]=0
+ *        (clocks 25-28 = 0000 fixed, clocks 29-32 = CRC3..CRC0, Fig 8-10/8-11)
  *      - Frame length: 32-bit (4 bytes)
- *      - Reference: Datasheet p.26
+ *      - Reference: Datasheet p.26 (algorithm), p.27 (frame placement)
  *============================================================================*/
 #define TPS2HCS08_SPI_FRAME_LEN           (3u)   /* 24bit = 3 byte             */
 #define TPS2HCS08_SPI_FRAME_LEN_CRC       (4u)   /* 32bit = 4 byte (CRC_EN=1)  */
