@@ -1806,7 +1806,7 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
             if (ExVioDb_VerifyConfig_Tps2hcs08() == TPS2HCS08_COMPLETE)
             {
                 /* Phase 2: Success - reset retry counters */
-                for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
+                for (int devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
                 {
                     exVioDbTps2hcs08Retry[devIdx].configVerify = 0u;
                 }
@@ -1821,7 +1821,7 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
                 /* Phase 2: Failure - check retry limit */
                 boolean allFailed = TRUE;
 
-                for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
+                for (int devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
                 {
                     if (exVioDbTps2hcs08Ctx[devIdx].devPresent == TRUE)
                     {
