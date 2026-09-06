@@ -844,6 +844,41 @@
 
 ---
 
+**M-19: SDO 헤더 해석 검증 및 복원**
+- **현황**: ValidateSdoHeader 함수가 비활성화됨 (잘못된 [7:0] 매핑 제거 후)
+- **문제**: SDO 헤더는 GLOBAL_FAULT_TYPE[15:8]이 맞지만, 실제 하드웨어 동작 검증 필요
+- **조치**:
+  1. **통합 검증 시 실측 판정**: SLEEP 웨이크업 직후 첫 트랜잭션 헤더 캡처
+     - POR 비트(GFT[6]) 위치로 [15:8]/[7:0] 최종 확정
+     - rxBuf[0] bit6 == 1 이면 [15:8] 확정 (데이터시트 기준)
+  2. **ValidateSdoHeader 복원** (ExVioDb_Tps2hcs08.c:504):
+     ```c
+     D_STATIC void ExVioDb_ValidateSdoHeader_Tps2hcs08(uint8 devIdx, uint8 sdoHeader)
+     {
+         /* Correct [15:8] mapping after hardware validation */
+         if ((sdoHeader & 0x01u) != 0u)  /* GLOBAL_ERR_WRN (GFT[8]) */
+         {
+             TF_STD_SWC_MNGR_LOG_SHEL_LOG_W(TAG_EEVP_EXVIODB,
+                 "[TPS2HCS08] dev=%d SDO: GLOBAL_ERR_WRN\r\n", devIdx);
+         }
+         if ((sdoHeader & 0x08u) != 0u)  /* LPM_STATUS (GFT[11]) */
+         {
+             /* Process #14: LPM status polling */
+         }
+         /* ... other bits (bit1=GFT[9], bit2=GFT[10], bit4/5=CH1/2_FLT) */
+     }
+     ```
+  3. **호출부 주석 제거**: WriteRegister, ReadRegister 3곳 활성화
+  4. **Process #14 연결**: LPM_STATUS 비트로 AUTO_LPM 진입 완료 감지
+- **검증**:
+  - 실측 판정 테스트 (POR 비트 위치 확인)
+  - 각 fault 비트 트리거 테스트 (UVLO, WD_ERR 등)
+  - #14 LPM 폴링 동작 확인
+- **Effort**: 30 minutes (after hardware validation)
+- **근거**: 데이터시트 p.26~27 (SDO 프레임), p.71~73 (GLOBAL_FAULT_TYPE)
+
+---
+
 ## Phase 2: VERIFICATION_REPORT Critical Issues (Week 3)
 
 이 단계는 VERIFICATION_REPORT의 9개 Critical Issues를 해결합니다.
@@ -1866,6 +1901,7 @@ gcc -DTEST -I Include -I test/Unity/src \
 | M-15 | DB_PARSING 중복 | B | 2 | 2h | 역할 명확화 |
 | M-17 | LPM 시퀀스 | B | 2 | 4h | 진입/복귀 순서 |
 | M-18 | 폴트 READ | B | 2 | 2h | Edge 검출 + POR |
+| M-19 | SDO 헤더 검증 복원 | A | HW검증 후 | 30m | [15:8] 매핑 확정 후 ValidateSdoHeader 활성화, #14 폴링 연결 |
 | VR-2,7 | Retry Counter | A | 3 | 1d | 재시도 상한 |
 | VR-3 | SDO 검증 | A | 3 | 4h | Inline validation |
 | VR-5,6 | Timeout+ERROR | A | 3 | 1d | 전 상태 timeout |

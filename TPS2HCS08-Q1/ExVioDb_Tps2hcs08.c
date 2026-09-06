@@ -478,39 +478,34 @@ D_STATIC boolean IsValidRegisterAddress_Tps2hcs08(uint8 addr)
 
 /*------------------------------------------------------------------------------
  *  ExVioDb_ValidateSdoHeader_Tps2hcs08
- *      Phase 2: Issue #3 - SDO Header Validation
- *      Validates SDO header (GLOBAL_FAULT_TYPE[15:8]) immediately after SPI transaction.
- *      Provides faster fault detection than waiting for 100ms watchdog cycle.
- *      SDO header bits [4:0] correspond to critical faults (datasheet p.71 Table 8-24).
+ *      [DEACTIVATED] SDO header interpretation deferred until integration validation.
+ *
+ *      Rationale:
+ *      - Hardware verification required: SLEEP wake-up test will capture first
+ *        transaction header to confirm bit mapping (POR bit position determines
+ *        whether rxBuf[0] = GFT[15:8] or GFT[7:0]).
+ *      - Fault detection already covered by periodic GLOBAL_FAULT_TYPE READ (#10).
+ *      - Premature header-based logic risks false positives/negatives before mapping
+ *        is verified, complicating diagnostics.
+ *
+ *      Datasheet-specified mapping (p.26~27, p.71~73) to implement after validation:
+ *        rxBuf[0] = GLOBAL_FAULT_TYPE[15:8], latched at CS falling edge
+ *        bit0 = GLOBAL_ERR_WRN       (GFT[8])
+ *        bit1 = OL_SHRT_VBB_OFF_FLT  (GFT[9])
+ *        bit2 = CHAN_OCP_I2T_TSD     (GFT[10])
+ *        bit3 = LPM_STATUS           (GFT[11])  <- Process #14 polling target
+ *        bit4 = CH1_FLT              (GFT[12])
+ *        bit5 = CH2_FLT              (GFT[13])
+ *        bit7:6 = RESERVED           (GFT[15:14])
+ *
+ *      TODO [M-19]: After hardware validation, restore this function with correct
+ *      [15:8] mapping and connect to Process #14 (LPM_STATUS polling).
  *----------------------------------------------------------------------------*/
 D_STATIC void ExVioDb_ValidateSdoHeader_Tps2hcs08(uint8 devIdx, uint8 sdoHeader)
 {
-    /* Check each fault bit in SDO header (bits [4:0]) */
-    if ((sdoHeader & 0x01u) != 0u)  /* VBB_UVLO */
-    {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] dev=%d SDO HEADER: VBB_UVLO detected\r\n", devIdx);
-    }
-    if ((sdoHeader & 0x02u) != 0u)  /* VBB_UV_WRN */
-    {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_W(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] dev=%d SDO HEADER: VBB_UV_WRN detected\r\n", devIdx);
-    }
-    if ((sdoHeader & 0x04u) != 0u)  /* VDD_UVLO */
-    {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] dev=%d SDO HEADER: VDD_UVLO detected\r\n", devIdx);
-    }
-    if ((sdoHeader & 0x08u) != 0u)  /* WD_ERR */
-    {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] dev=%d SDO HEADER: WD_ERR detected\r\n", devIdx);
-    }
-    if ((sdoHeader & 0x10u) != 0u)  /* SPI_ERR */
-    {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] dev=%d SDO HEADER: SPI_ERR detected\r\n", devIdx);
-    }
+    /* DEACTIVATED - see function header comment */
+    (void)devIdx;
+    (void)sdoHeader;
 }
 
 /*------------------------------------------------------------------------------
@@ -550,7 +545,8 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr
                 exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
 
                 /* Phase 2: Issue #3 - Validate SDO header immediately */
-                ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]);
+                /* [DEACTIVATED] See M-19: Restore after hardware validation */
+                /* ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]); */
 
                 /* M-14: Update shadow ONLY on successful SPI transfer.
                  * If SPI fails, shadow retains last known good value.
@@ -610,7 +606,8 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr,
                                                TPS2HCS08_SPI_FRAME_LEN) == E_OK)
         {
             /* Phase 2: Issue #3 - Validate SDO header from 1st frame */
-            ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]);
+            /* [DEACTIVATED] See M-19: Restore after hardware validation */
+            /* ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]); */
 
             /* 2nd frame : dummy read, SDO carries the data of the 1st frame  */
             if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
@@ -619,7 +616,8 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr,
                 exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
 
                 /* Phase 2: Issue #3 - Validate SDO header from 2nd frame */
-                ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]);
+                /* [DEACTIVATED] See M-19: Restore after hardware validation */
+                /* ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]); */
 
                 *readValue = (uint16)(((uint16)rxBuf[1] << 8u) | (uint16)rxBuf[2]);
                 retVal = E_OK;
