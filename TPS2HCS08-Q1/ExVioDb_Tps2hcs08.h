@@ -18,6 +18,23 @@
  *  INCLUDES
  *============================================================================*/
 #include "Std_Types.h"          /* uint8 / uint16 / boolean / Std_ReturnType   */
+#include <stdbool.h>
+
+#ifndef TRUE
+#define TRUE  ((boolean)true)
+#endif
+
+#ifndef FALSE
+#define FALSE ((boolean)false)
+#endif
+
+#ifndef E_OK
+#define E_OK     ((Std_ReturnType)0u)
+#endif
+
+#ifndef E_NOT_OK
+#define E_NOT_OK ((Std_ReturnType)1u)
+#endif
 
 /*==============================================================================
  *  1. DEVICE / CHANNEL CONFIGURATION
@@ -637,6 +654,19 @@ typedef struct
  *============================================================================*/
 typedef struct
 {
+    uint16 signalId;
+
+    /* Vehicle IO DB metadata */
+    uint8 cat1;
+    uint8 cat2;
+    uint8 sc;
+    uint8 ic;
+    uint8 pin;
+
+    /* State required by dependent mappings */
+    uint8 used;
+    uint8 pwmMode[TPS2HCS08_CH_MAX];
+
     /* --- shadow register (last written value) ---------------------------- */
     tTps2hcs08DevId             devId;
     tTps2hcs08CrcConfig         crcConfig;
@@ -667,6 +697,16 @@ typedef struct
     tTps2hcs08AdcResultCh       adcResultChVDS[TPS2HCS08_CH_MAX];
     tTps2hcs08I2tConfigCh       i2tCfgCh[TPS2HCS08_CH_MAX];
     
+    /* Mock read-register image for static verification */
+    uint16                      mockReadReg[0x20u];
+
+    /* Mock/static verification */
+    uint32 writeCount;
+    boolean lastWriteValid;
+    uint8 lastSeqid;
+    uint8 lastAddr;
+    uint16 lastPayload;
+
 #pragma region TOOD Check
     /* --- DB parsing result ----------------------------------------------- */
     tTps2hcs08ChCfg             chCfg[TPS2HCS08_CH_MAX];
