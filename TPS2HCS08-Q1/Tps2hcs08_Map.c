@@ -53,58 +53,6 @@ D_STATIC void ExVioDb_LogMappingFallback(uint16 signalId,
 }
 
 /* =========================================================================
- * Actual write entry
- * ========================================================================= */
-
-D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 seqid,
-                                                         uint8 addr,
-                                                         uint16 payload)
-{
-    /*
-     * Mock stage.
-     *
-     * Later replace this body with:
-     *   - SPI frame generation
-     *   - Spi_SetupEB(...)
-     *   - Spi_SyncTransmit(seqid)
-     *
-     * Map functions do not need to change.
-     */
-    s_ctx.writeCount++;
-    s_ctx.lastWriteValid = TRUE;
-    s_ctx.lastSeqid = seqid;
-    s_ctx.lastAddr = addr;
-    s_ctx.lastPayload = payload;
-
-    return E_OK;
-}
-
-
-D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 seqid,
-                                                        uint8 addr,
-                                                        uint16 *payload)
-{
-    /*
-     * Mock stage.
-     *
-     * Later replace this body with the real TPS2HCS08 SPI READ sequence.
-     * TPS2HCS08 read data is pipelined, so the real implementation must
-     * account for the device's next-frame response behavior.
-     */
-    (void)seqid;
-
-    if ((payload == (uint16 *)0) ||
-        (addr >= 0x20u))
-    {
-        return E_NOT_OK;
-    }
-
-    *payload = s_ctx.mockReadReg[addr];
-
-    return E_OK;
-}
-
-/* =========================================================================
  * Common validation / address helpers
  * ========================================================================= */
 
