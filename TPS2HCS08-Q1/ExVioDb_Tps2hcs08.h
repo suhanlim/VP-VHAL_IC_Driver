@@ -524,29 +524,8 @@ typedef struct
 } tTps2hcs08MapEntry;
 
 /*==============================================================================
- *  7. CHANNEL CONFIGURATION (result of DB parsing)
+ *  7. CHANNEL CONFIGURATION (result of DB parsing) -> tExVioDbRec;
  *============================================================================*/
-typedef struct
-{
-    boolean     used;                 /* USED     : channel is assigned       */
-    uint16      sigIdx;               /* vehicle IO signal DB record index    */
-    boolean     bPlusAlways;          /* B+ always on channel (process #8)    */
-    boolean     defValueOn;           /* DEF_Value: initial output level      */
-    boolean     parallel;             /* MOC      : CH1/CH2 parallel operation*/
-    boolean     volDetUse;            /* VOL_DET  : VOUT sensing use          */
-    boolean     oldUse;               /* OLD      : off-state open load detect*/
-    tDbPwmType  pwmType;              /* PWM      : PWM_C / PWM_X / PWM_O     */
-    uint8       pwmFreq;              /* PWM_F    -> PWM_FREQ_CHx    [11:9]   */
-    uint8       pwmDuty;              /* PWM_Duty -> PWM_DTY_CHx     [8:1]    */
-    uint8       inrushLimit;          /* PWM_Duty -> INRUSH_LIMIT_CHx[7:4]    */
-    uint8       inrushDuration;       /* CT       -> INRUSH_DURATION [10:8]   */
-    uint8       capChrg;              /* CT       -> CAP_CHRG_CHx    [13:12]  */
-    uint8       ilimitSet;            /* OCP      -> ILIMIT_SET_CHx  [3:0]    */
-    uint8       slewRate;             /* SR       -> SLRT_CHx        [1:0]    */
-    uint8       iswcl;                /* OCP      -> ISWCL_CHx       [8:7]    */
-    uint8       i2tTrip;              /* OCP      -> I2T_TRIP_CHx    [6:3]    */
-    uint8       nomCur;               /* OCP      -> NOM_CUR_CHx     [2:0]    */
-} tTps2hcs08ChCfg;
 
 /*==============================================================================
  *  8. DIAGNOSTIC RESULT
@@ -566,12 +545,10 @@ typedef enum
 typedef enum
 {
     TPS2HCS08_SETUP_SCN_SET_DEF = 0,      /*     register default value set   */
-    TPS2HCS08_SETUP_SCN_DB_PARSING,       /*     vehicle IO signal DB parsing */
     TPS2HCS08_SETUP_SCN_WAKEUP,           /* #2,#3 SLEEP -> INIT&ABIST(CSN=0) */
     TPS2HCS08_SETUP_SCN_WAIT_READY,       /* #4  tREADY(65us) wait -> CONFIG  */
     TPS2HCS08_SETUP_SCN_CLEAR_POR,        /* #4  GLOBAL_FAULT_TYPE read/clear */
     TPS2HCS08_SETUP_SCN_CONFIG_WRITE,     /* #5  register write               */
-    TPS2HCS08_SETUP_SCN_CONFIG_VERIFY,    /* #5  register read back verify    */
     TPS2HCS08_SETUP_SCN_DIAG_PULLDOWN,    /* #6  Open/Short diag : discharge  */
     TPS2HCS08_SETUP_SCN_DIAG_PULLUP,      /* #6  Open/Short diag : pull-up    */
     TPS2HCS08_SETUP_SCN_DIAG_JUDGE_OL,    /* #6  Open/Short diag : OL judge   */
@@ -668,8 +645,6 @@ typedef struct
     tTps2hcs08I2tConfigCh       i2tCfgCh[TPS2HCS08_CH_MAX];
     
 #pragma region TOOD Check
-    /* --- DB parsing result ----------------------------------------------- */
-    tTps2hcs08ChCfg             chCfg[TPS2HCS08_CH_MAX];
 
     /* --- diagnostic result ----------------------------------------------- */
     tTps2hcs08DiagResult        diagResult[TPS2HCS08_CH_MAX];

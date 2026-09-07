@@ -82,6 +82,7 @@ D_STATIC tTps2hcs08RunState      exVioDbTps2hcs08RunState;
 
 D_STATIC tTps2hcs08Ctx           exVioDbTps2hcs08Ctx[TPS2HCS08_DEV_MAX];
 D_STATIC tTps2hcs08SpiRuntime    exVioDbTps2hcs08SpiRuntime;
+D_STATIC tExVioDbRec             exVioDbRec;
 
 /* M-06: SDO header moved to context structure (tTps2hcs08Ctx.sdoHeader).
  * Previously was global array exVioDbTps2hcs08SdoHeader[].
@@ -343,7 +344,6 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr,
 D_STATIC uint16        *ExVioDb_GetWritableShadowPtr_Tps2hcs08(uint8 devIdx, uint8 addr);
 
 /* --- DB parsing ---------------------------------------------------------- */
-D_STATIC void           ExVioDb_ParsingOutputTps2hcs08Reg(uint16 sigIndex);
 D_STATIC Std_ReturnType ExVioDb_MapDbParam_Tps2hcs08(const tTps2hcs08MapEntry *tbl,
                                                      uint8 tblSize, uint8 dbId,
                                                      uint8 *regValue,
@@ -354,8 +354,6 @@ D_STATIC Std_ReturnType ExVioDb_MapDbParam_Tps2hcs08(const tTps2hcs08MapEntry *t
 D_STATIC void  ExVioDb_WakeUp_Tps2hcs08(void);
 D_STATIC uint8 ExVioDb_WaitReadyDone_Tps2hcs08(void);
 D_STATIC uint8 ExVioDb_ClearPorFault_Tps2hcs08(void);
-D_STATIC uint8 ExVioDb_WriteConfig_Tps2hcs08(void);
-D_STATIC uint8 ExVioDb_VerifyConfig_Tps2hcs08(void);
 D_STATIC void  ExVioDb_DiagSetPullDown_Tps2hcs08(void);
 D_STATIC void  ExVioDb_DiagSetPullUp_Tps2hcs08(void);
 D_STATIC uint8 ExVioDb_DiagJudgeOpenLoad_Tps2hcs08(void);
@@ -681,21 +679,87 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 seqid, uint8 addr, 
 /* void ExVioDb_InitRegValue_Tps2hcs08(void) 호출 이후 호출 할 것 */
 void ExVioDb_InitRegValue_LoadDb(void) 
 {
-    uint8 devIdx;
-    uint8 chIdx;
+    uint8 devIdx; uint8 chIdx;
+    uint8 PARALLEL_12 = 0u;
+    uint8 PWM_FREQ_CHx = 0u;
+    uint8 PWM_DTY_CHx = 0u;
+    uint8 PWM_EN_CHx = 0u;
+    uint8 CAP_CHRG_CHx = 0u;
+    uint8 INRUSH_DURATION_CHx = 0u;
+    uint8 INRUSH_LIMIT_CHx    = 0u;  /* 40A    */
+    uint8 ILIMIT_SET_CHx      = 0u;  /* 40A    */
+    uint8 VSNS_DIS_CHx        = 0u;  /* from DB     */
+    uint8 SLRT_CHx            = 1u;
+    uint8 ISWCL_CHx        = 0u;
+    uint8 I2T_TRIP_CHx     = 0u;
+    uint8 NOM_CUR_CHx      = 0u;
+    uint8 SWCL_DLY_TMR_CHx = 0u;
+
+    uint8 used = exVioDbRec.USED;
+    switch (used) 
+    {
+        case 1: PARALLEL_12 = 0u;
+            break;
+        case 2: PARALLEL_12 = 1u;
+            break;
+    }
+
+    uint8 moc = exVioDbRec.MOC;
+    switch (moc) 
+    {
+        case 1: NOM_CUR_CHx = 0u; I2T_TRIP_CHx = 0u; SWCL_DLY_TMR_CHx = 3u; ISWCL_CHx = 0u;
+            break;
+        case 2: NOM_CUR_CHx = 0u; I2T_TRIP_CHx = 2u; SWCL_DLY_TMR_CHx = 3u; ISWCL_CHx = 0u;
+            break;
+        case 3: NOM_CUR_CHx = 3u; I2T_TRIP_CHx = 5u; SWCL_DLY_TMR_CHx = 3u; ISWCL_CHx = 0u;
+            break;
+        case 4: NOM_CUR_CHx = 6u; I2T_TRIP_CHx = 0xCu; SWCL_DLY_TMR_CHx = 3u; ISWCL_CHx = 0u;
+            break;
+        case 5: NOM_CUR_CHx = 5u; I2T_TRIP_CHx = 0xAu; SWCL_DLY_TMR_CHx = 3u; ISWCL_CHx = 0u;
+            break;
+        case 6: NOM_CUR_CHx = 6u; I2T_TRIP_CHx = 0xFu; SWCL_DLY_TMR_CHx = 3u; ISWCL_CHx = 0u;
+            break;
+        default:
+            if (used == 1) 
+            {
+                NOM_CUR_CHx = 6u; I2T_TRIP_CHx = 0xCu; SWCL_DLY_TMR_CHx = 3u; ISWCL_CHx = 0u;
+                TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB, "[TPS2HCS08] DB PARAM MOC SET ERROR. \r\n");
+            }
+            else if (used == 2)
+            {
+                NOM_CUR_CHx = 6u; I2T_TRIP_CHx = 0xFu; SWCL_DLY_TMR_CHx = 3u; ISWCL_CHx = 0u;
+                TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB, "[TPS2HCS08] DB PARAM MOC SET ERROR. \r\n");
+            }
+    }
+
+    uint8 ocp = exVioDbRec.OCP;
+    switch (ocp) 
+    {
+
+    }
+
+    uint8 pwm = exVioDbRec.PWM;
+    uint8 old = exVioDbRec.OLD;
+    uint8 pwm_f = exVioDbRec.PWM_F;
+    uint8 ct = exVioDbRec.CT;
+    uint8 sr = exVioDbRec.SR;
+    uint8 vol_det = exVioDbRec.VOL_DET;
+    uint8 def_value = exVioDbRec.DEF_Value;
+    uint8 pwm_duty = exVioDbRec.PWM_Duty;
+
 
     for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
     {
         tTps2hcs08Ctx *pCtx = &exVioDbTps2hcs08Ctx[devIdx];
 
-        pCtx->devConfig.bits.PARALLEL_12          = 0u;   /* 추후 IO DB 결정시 수정 필요 from signal DB    */
+        pCtx->devConfig.bits.PARALLEL_12          = PARALLEL_12;   /* 추후 IO DB 결정시 수정 필요 from signal DB    */
 
         for (chIdx = 0u; chIdx < TPS2HCS08_CH_MAX; chIdx++)
         {
             /* --- Eh PWM_CHx ---------------------------------------------- */
-            pCtx->pwmCh[chIdx].bits.PWM_FREQ_CHx  = 0u;  /* 추후 IO DB 결정시 수정 필요 from signal DB    */
-            pCtx->pwmCh[chIdx].bits.PWM_DTY_CHx   = 0u;  /* 추후 IO DB 결정시 수정 필요 from signal DB    */
-            pCtx->pwmCh[chIdx].bits.PWM_EN_CHx    = 0u;  /* 추후 IO DB 결정시 수정 필요 from signal DB    */
+            pCtx->pwmCh[chIdx].bits.PWM_FREQ_CHx  = PWM_FREQ_CHx;  /* 추후 IO DB 결정시 수정 필요 from signal DB    */
+            pCtx->pwmCh[chIdx].bits.PWM_DTY_CHx   = PWM_DTY_CHx;  /* 추후 IO DB 결정시 수정 필요 from signal DB    */
+            pCtx->pwmCh[chIdx].bits.PWM_EN_CHx    = PWM_EN_CHx;  /* 추후 IO DB 결정시 수정 필요 from signal DB    */
 
             /* --- Fh ILIM_CONFIG_CHx -------------------------------------- */
             /* M-04: I2T_EN initially disabled for safety.
@@ -703,20 +767,20 @@ void ExVioDb_InitRegValue_LoadDb(void)
              * Could cause unintended trip during init before DB parsing.
              * DB parsing will enable I2T_EN if required.
              */
-            pCtx->ilimCfgCh[chIdx].bits.CAP_CHRG_CHx        = TPS2HCS08_CAP_CHRG_NONE;
-            pCtx->ilimCfgCh[chIdx].bits.INRUSH_DURATION_CHx = 0u;
-            pCtx->ilimCfgCh[chIdx].bits.INRUSH_LIMIT_CHx    = 0x8u;  /* 40A    */
-            pCtx->ilimCfgCh[chIdx].bits.ILIMIT_SET_CHx      = 0x8u;  /* 40A    */
+            pCtx->ilimCfgCh[chIdx].bits.CAP_CHRG_CHx        = CAP_CHRG_CHx;
+            pCtx->ilimCfgCh[chIdx].bits.INRUSH_DURATION_CHx = INRUSH_DURATION_CHx;
+            pCtx->ilimCfgCh[chIdx].bits.INRUSH_LIMIT_CHx    = INRUSH_LIMIT_CHx;  /* 40A    */
+            pCtx->ilimCfgCh[chIdx].bits.ILIMIT_SET_CHx      = ILIMIT_SET_CHx;  /* 40A    */
 
             /* --- 10h CHx_CONFIG ------------------------------------------ */
-            pCtx->chConfig[chIdx].bits.VSNS_DIS_CHx         = 1u;  /* from DB     */
-            pCtx->chConfig[chIdx].bits.SLRT_CHx             = 1u;
+            pCtx->chConfig[chIdx].bits.VSNS_DIS_CHx         = VSNS_DIS_CHx;  /* from DB     */
+            pCtx->chConfig[chIdx].bits.SLRT_CHx             = SLRT_CHx;
 
             /* --- 15h I2T_CONFIG_CHx -------------------------------------- */
-            pCtx->i2tCfgCh[chIdx].bits.ISWCL_CHx        = 0u;
-            pCtx->i2tCfgCh[chIdx].bits.I2T_TRIP_CHx     = 0u;
-            pCtx->i2tCfgCh[chIdx].bits.NOM_CUR_CHx      = 0u;
-
+            pCtx->i2tCfgCh[chIdx].bits.ISWCL_CHx        = ISWCL_CHx;
+            pCtx->i2tCfgCh[chIdx].bits.I2T_TRIP_CHx     = I2T_TRIP_CHx;
+            pCtx->i2tCfgCh[chIdx].bits.NOM_CUR_CHx      = NOM_CUR_CHx;
+            pCtx->i2tCfgCh[chIdx].bits.SWCL_DLY_TMR_CHx = SWCL_DLY_TMR_CHx;
         }
     }
 }
@@ -924,254 +988,6 @@ D_STATIC Std_ReturnType ExVioDb_MapDbParam_Tps2hcs08(const tTps2hcs08MapEntry *t
     return retVal;
 }
 
-/*------------------------------------------------------------------------------
- *  ExVioDb_ParsingOutputTps2hcs08Reg
- *      Converts one vehicle IO signal DB record into the shadow register of
- *      the assigned device / channel.
- *----------------------------------------------------------------------------*/
-D_STATIC void ExVioDb_ParsingOutputTps2hcs08Reg(uint16 sigIndex)
-{
-    tTps2hcs08Ctx   *pCtx;
-    tTps2hcs08ChCfg *pCfg;
-    uint8            devIdx;
-    uint8            chIdx;
-    uint8            regVal;
-    uint16           skipMask = 0u;
-
-    /* --- CAT_2 check : TPS2HCS08-Q1 signal must be Active High ------------ */
-    if ((uint8)exVioDbRec[sigIndex].CAT_2 != (uint8)DB_CAT2_ACTIVE_HIGH)
-    {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] DB PARAM NOT DEFINED. sigId=%d param=CAT_2 value=%d\r\n",
-            (int)sigIndex, (int)exVioDbRec[sigIndex].CAT_2);
-        return;
-    }
-
-    /* --- SC check : only the signal of my standard controller ------------- */
-    if ((uint8)exVioDbRec[sigIndex].SC != (uint8)EXVIODB_MY_SC_ID)
-    {
-        return;
-    }
-
-    /* --- IC : daisy chain device index ------------------------------------ */
-    devIdx = (uint8)exVioDbRec[sigIndex].IC;
-    if (devIdx >= TPS2HCS08_DEV_MAX)
-    {
-        TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-            "[TPS2HCS08] DB PARAM NOT DEFINED. sigId=%d param=IC value=%d\r\n",
-            (int)sigIndex, (int)devIdx);
-        return;
-    }
-
-    /* --- PIN : output channel --------------------------------------------- */
-    switch ((uint8)exVioDbRec[sigIndex].PIN)
-    {
-        case DB_PIN_IC_PIN_1:   chIdx = TPS2HCS08_CH1;  break;
-        case DB_PIN_IC_PIN_2:   chIdx = TPS2HCS08_CH2;  break;
-        default:
-            TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-                "[TPS2HCS08] DB PARAM NOT DEFINED. sigId=%d param=PIN value=%d\r\n",
-                (int)sigIndex, (int)exVioDbRec[sigIndex].PIN);
-            return;
-    }
-
-    pCtx = &exVioDbTps2hcs08Ctx[devIdx];
-    pCfg = &pCtx->chCfg[chIdx];
-
-    /* --- USED : channel assignment ---------------------------------------- */
-    if ((uint8)exVioDbRec[sigIndex].USED == 0u)
-    {
-        pCfg->used = FALSE;
-        return;
-    }
-
-    pCtx->devPresent = TRUE;
-    pCfg->used       = TRUE;
-    pCfg->sigIdx     = sigIndex;
-
-    /* --- MOC : parallel operation of CH1 / CH2 ---------------------------- */
-    pCfg->parallel = ((uint8)exVioDbRec[sigIndex].MOC != 0u) ? TRUE : FALSE;
-    if (pCfg->parallel == TRUE)
-    {
-        pCtx->devConfig.bits.PARALLEL_12 = 1u;
-    }
-
-    /* --- DEF_Value : initial output level / B+ always on ------------------ */
-    pCfg->defValueOn  = ((uint8)exVioDbRec[sigIndex].DEF_Value != 0u) ? TRUE : FALSE;
-    pCfg->bPlusAlways = pCfg->defValueOn;
-
-    /* --- VOL_DET : VOUT voltage sensing ----------------------------------- */
-    pCfg->volDetUse = ((uint8)exVioDbRec[sigIndex].VOL_DET != 0u) ? TRUE : FALSE;
-    pCtx->chConfig[chIdx].bits.VSNS_DIS_CHx = (pCfg->volDetUse == TRUE) ? 0u : 1u;
-
-    /* --- OLD : off state open load detection ------------------------------ */
-    pCfg->oldUse = ((uint8)exVioDbRec[sigIndex].OLD != 0u) ? TRUE : FALSE;
-
-    /* --- OCP -> ILIMIT_SET_CHx -------------------------------------------- */
-    if (ExVioDb_MapDbParam_Tps2hcs08(exVioDbTps2hcs08MapOcp,
-            (uint8)(sizeof(exVioDbTps2hcs08MapOcp) / sizeof(tTps2hcs08MapEntry)),
-            (uint8)exVioDbRec[sigIndex].OCP, &regVal, sigIndex, "OCP") == E_OK)
-    {
-        pCfg->ilimitSet = regVal;
-        pCtx->ilimCfgCh[chIdx].bits.ILIMIT_SET_CHx = regVal;
-    }
-    else
-    {
-        skipMask |= TPS2HCS08_SKIP_ILIM;
-    }
-
-    /* --- OCP -> I2T setting ( NOM_CUR / I2T_TRIP / ISWCL ) ---------------- */
-    if (ExVioDb_MapDbParam_Tps2hcs08(exVioDbTps2hcs08MapNomCur,
-            (uint8)(sizeof(exVioDbTps2hcs08MapNomCur) / sizeof(tTps2hcs08MapEntry)),
-            (uint8)exVioDbRec[sigIndex].OCP, &regVal, sigIndex, "OCP(NOM_CUR)") == E_OK)
-    {
-        pCfg->nomCur = regVal;
-        pCtx->i2tCfgCh[chIdx].bits.NOM_CUR_CHx = regVal;
-    }
-    else
-    {
-        skipMask |= TPS2HCS08_SKIP_I2T;
-    }
-
-    if (ExVioDb_MapDbParam_Tps2hcs08(exVioDbTps2hcs08MapI2tTrip,
-            (uint8)(sizeof(exVioDbTps2hcs08MapI2tTrip) / sizeof(tTps2hcs08MapEntry)),
-            (uint8)exVioDbRec[sigIndex].OCP, &regVal, sigIndex, "OCP(I2T_TRIP)") == E_OK)
-    {
-        pCfg->i2tTrip = regVal;
-        pCtx->i2tCfgCh[chIdx].bits.I2T_TRIP_CHx = regVal;
-    }
-    else
-    {
-        skipMask |= TPS2HCS08_SKIP_I2T;
-    }
-
-    if (ExVioDb_MapDbParam_Tps2hcs08(exVioDbTps2hcs08MapIswcl,
-            (uint8)(sizeof(exVioDbTps2hcs08MapIswcl) / sizeof(tTps2hcs08MapEntry)),
-            (uint8)exVioDbRec[sigIndex].WC, &regVal, sigIndex, "OCP(ISWCL)") == E_OK)
-    {
-        pCfg->iswcl = regVal;
-        pCtx->i2tCfgCh[chIdx].bits.ISWCL_CHx = regVal;
-    }
-    else
-    {
-        skipMask |= TPS2HCS08_SKIP_I2T;
-    }
-
-    /* M-04: Enable I2T protection after DB parameters are configured.
-     * I2T_EN was initially disabled (=0) for safety during init.
-     * Now that NOM_CUR, I2T_TRIP, ISWCL are set from DB, enable I2T.
-     * If I2T params were not successfully parsed, I2T_EN remains 0.
-     */
-    if ((skipMask & TPS2HCS08_SKIP_I2T) == 0u)
-    {
-        pCtx->ilimCfgCh[chIdx].bits.I2T_EN_CHx = 1u;  /* Enable I2T protection */
-    }
-
-    /* --- CT -> CAP_CHRG / INRUSH_DURATION --------------------------------- */
-    if (ExVioDb_MapDbParam_Tps2hcs08(exVioDbTps2hcs08MapInrushDur,
-            (uint8)(sizeof(exVioDbTps2hcs08MapInrushDur) / sizeof(tTps2hcs08MapEntry)),
-            (uint8)exVioDbRec[sigIndex].CT, &regVal, sigIndex, "CT") == E_OK)
-    {
-        pCfg->inrushDuration = regVal;
-        pCtx->ilimCfgCh[chIdx].bits.INRUSH_DURATION_CHx = regVal;
-    }
-    else
-    {
-        skipMask |= TPS2HCS08_SKIP_ILIM;
-    }
-
-    /* --- SR -> SLRT_CHx --------------------------------------------------- */
-    if (ExVioDb_MapDbParam_Tps2hcs08(exVioDbTps2hcs08MapSlrt,
-            (uint8)(sizeof(exVioDbTps2hcs08MapSlrt) / sizeof(tTps2hcs08MapEntry)),
-            (uint8)exVioDbRec[sigIndex].SR, &regVal, sigIndex, "SR") == E_OK)
-    {
-        pCfg->slewRate = regVal;
-        pCtx->chConfig[chIdx].bits.SLRT_CHx = regVal;
-    }
-    else
-    {
-        skipMask |= TPS2HCS08_SKIP_CH_CFG;
-    }
-
-    /* --- PWM_F -> PWM_FREQ_CHx -------------------------------------------- */
-    if (ExVioDb_MapDbParam_Tps2hcs08(exVioDbTps2hcs08MapPwmFreq,
-            (uint8)(sizeof(exVioDbTps2hcs08MapPwmFreq) / sizeof(tTps2hcs08MapEntry)),
-            (uint8)exVioDbRec[sigIndex].PWM_F, &regVal, sigIndex, "PWM_F") == E_OK)
-    {
-        pCfg->pwmFreq = regVal;
-        pCtx->pwmCh[chIdx].bits.PWM_FREQ_CHx = regVal;
-    }
-    else
-    {
-        skipMask |= TPS2HCS08_SKIP_PWM;
-    }
-
-    /* --- PWM / PWM_Duty --------------------------------------------------- */
-    pCfg->pwmType = (tDbPwmType)exVioDbRec[sigIndex].PWM;
-
-    switch (pCfg->pwmType)
-    {
-        case DB_PWM_TYPE_C:
-            /* capacitive charging : Duty -> INRUSH_LIMIT (CAP_CHRG = 10)     */
-            pCtx->ilimCfgCh[chIdx].bits.CAP_CHRG_CHx = TPS2HCS08_CAP_CHRG_CUR_REG;
-            pCtx->pwmCh[chIdx].bits.PWM_EN_CHx       = 0u;
-            if (ExVioDb_MapDbParam_Tps2hcs08(exVioDbTps2hcs08MapInrushLimitC,
-                    (uint8)(sizeof(exVioDbTps2hcs08MapInrushLimitC) / sizeof(tTps2hcs08MapEntry)),
-                    (uint8)exVioDbRec[sigIndex].PWM_Duty, &regVal, sigIndex,
-                    "PWM_Duty(PWM_C)") == E_OK)
-            {
-                pCfg->inrushLimit = regVal;
-                pCtx->ilimCfgCh[chIdx].bits.INRUSH_LIMIT_CHx = regVal;
-            }
-            else
-            {
-                skipMask |= TPS2HCS08_SKIP_ILIM;
-            }
-            break;
-
-        case DB_PWM_TYPE_X:
-            /* no capacitive charging : Duty -> INRUSH_LIMIT (CAP_CHRG = 00)  */
-            pCtx->ilimCfgCh[chIdx].bits.CAP_CHRG_CHx = TPS2HCS08_CAP_CHRG_NONE;
-            pCtx->pwmCh[chIdx].bits.PWM_EN_CHx       = 0u;
-            if (ExVioDb_MapDbParam_Tps2hcs08(exVioDbTps2hcs08MapInrushLimitX,
-                    (uint8)(sizeof(exVioDbTps2hcs08MapInrushLimitX) / sizeof(tTps2hcs08MapEntry)),
-                    (uint8)exVioDbRec[sigIndex].PWM_Duty, &regVal, sigIndex,
-                    "PWM_Duty(PWM_X)") == E_OK)
-            {
-                pCfg->inrushLimit = regVal;
-                pCtx->ilimCfgCh[chIdx].bits.INRUSH_LIMIT_CHx = regVal;
-            }
-            else
-            {
-                skipMask |= TPS2HCS08_SKIP_ILIM;
-            }
-            break;
-
-        case DB_PWM_TYPE_O:
-            /* PWM output : Duty -> PWM_DTY_CHx ( 1 : 1 mapping )             */
-            /* PWM can only be enabled when CAP_CHRG_CHx = 00                 */
-            pCtx->ilimCfgCh[chIdx].bits.CAP_CHRG_CHx = TPS2HCS08_CAP_CHRG_NONE;
-            pCfg->pwmDuty                            = (uint8)exVioDbRec[sigIndex].PWM_Duty;
-            pCtx->pwmCh[chIdx].bits.PWM_DTY_CHx      = pCfg->pwmDuty;
-            pCtx->pwmCh[chIdx].bits.PWM_EN_CHx       = 1u;
-            break;
-
-        case DB_PWM_TYPE_NONE:
-            pCtx->ilimCfgCh[chIdx].bits.CAP_CHRG_CHx = TPS2HCS08_CAP_CHRG_NONE;
-            pCtx->pwmCh[chIdx].bits.PWM_EN_CHx       = 0u;
-            break;
-
-        default:
-            TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-                "[TPS2HCS08] DB PARAM NOT DEFINED. sigId=%d param=PWM value=%d -> REG WRITE SKIP\r\n",
-                (int)sigIndex, (int)exVioDbRec[sigIndex].PWM);
-            skipMask |= (TPS2HCS08_SKIP_PWM | TPS2HCS08_SKIP_ILIM);
-            break;
-    }
-
-    exVioDbTps2hcs08SkipMask[devIdx][chIdx] = skipMask;
-}
-
 /*******************************************************************************
  *  SECTION 3 : SETUP SCAN STATE ACTION
  ******************************************************************************/
@@ -1313,188 +1129,6 @@ D_STATIC uint8 ExVioDb_ClearPorFault_Tps2hcs08(void)
             (void)ExVioDb_ReadRegister_Tps2hcs08(devIdx,
                     TPS2HCS08_CH_REG(TPS2HCS08_REG_FLT_STAT_CH1, chIdx), &regValue);
             pCtx->logLatchCh[chIdx] = 0u;
-        }
-    }
-
-    return retVal;
-}
-
-/*------------------------------------------------------------------------------
- *  ExVioDb_WriteConfig_Tps2hcs08                   [ process #5 ]
- *      Writes every configuration register in the CONFIG state (output OFF).
- *----------------------------------------------------------------------------*/
-D_STATIC uint8 ExVioDb_WriteConfig_Tps2hcs08(void)
-{
-    uint8 devIdx;
-    uint8 chIdx;
-    uint8 retVal = TPS2HCS08_COMPLETE;
-
-    for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
-    {
-        tTps2hcs08Ctx *pCtx = &exVioDbTps2hcs08Ctx[devIdx];
-
-        if (pCtx->devPresent != TRUE)
-        {
-            continue;
-        }
-
-        /* 7h SW_STATE : keep all outputs OFF during configuration           */
-        if (ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_SW_STATE,
-                                            0x0000u) != E_OK)
-        {
-            retVal = TPS2HCS08_BUSY;
-        }
-
-        /* 3h LPM : AUTO_LPM_EXIT_CHx = 0, MANUAL_LPM not used               */
-        if (ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_LPM,
-                                            pCtx->lpm.word) != E_OK)
-        {
-            retVal = TPS2HCS08_BUSY;
-        }
-
-        /* 5h FAULT_MASK                                                     */
-        if (ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_FAULT_MASK,
-                                            pCtx->faultMask.word) != E_OK)
-        {
-            retVal = TPS2HCS08_BUSY;
-        }
-
-        /* 9h DEV_CONFIG ( PARALLEL_12 write is valid only when outputs OFF )*/
-        if ((exVioDbTps2hcs08SkipMask[devIdx][TPS2HCS08_CH1] & TPS2HCS08_SKIP_DEV_CFG) == 0u)
-        {
-            if (ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_DEV_CONFIG,
-                                                pCtx->devConfig.word) != E_OK)
-            {
-                retVal = TPS2HCS08_BUSY;
-            }
-        }
-
-        /* Ah ADC_CONFIG                                                     */
-        if (ExVioDb_WriteRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_ADC_CONFIG,
-                                            pCtx->adcConfig.word) != E_OK)
-        {
-            retVal = TPS2HCS08_BUSY;
-        }
-
-        /* per channel register                                              */
-        for (chIdx = 0u; chIdx < TPS2HCS08_CH_MAX; chIdx++)
-        {
-            uint16 skip = exVioDbTps2hcs08SkipMask[devIdx][chIdx];
-
-            if (pCtx->chCfg[chIdx].used != TRUE)
-            {
-                continue;
-            }
-
-            /* Eh PWM_CHx                                                    */
-            if ((skip & TPS2HCS08_SKIP_PWM) == 0u)
-            {
-                if (ExVioDb_WriteRegister_Tps2hcs08(devIdx,
-                        TPS2HCS08_CH_REG(TPS2HCS08_REG_PWM_CH1, chIdx),
-                        pCtx->pwmCh[chIdx].word) != E_OK)
-                {
-                    retVal = TPS2HCS08_BUSY;
-                }
-            }
-
-            /* Fh ILIM_CONFIG_CHx                                            */
-            if ((skip & TPS2HCS08_SKIP_ILIM) == 0u)
-            {
-                if (ExVioDb_WriteRegister_Tps2hcs08(devIdx,
-                        TPS2HCS08_CH_REG(TPS2HCS08_REG_ILIM_CONFIG_CH1, chIdx),
-                        pCtx->ilimCfgCh[chIdx].word) != E_OK)
-                {
-                    retVal = TPS2HCS08_BUSY;
-                }
-            }
-
-            /* 10h CHx_CONFIG                                                */
-            if ((skip & TPS2HCS08_SKIP_CH_CFG) == 0u)
-            {
-                if (ExVioDb_WriteRegister_Tps2hcs08(devIdx,
-                        TPS2HCS08_CH_REG(TPS2HCS08_REG_CH1_CONFIG, chIdx),
-                        pCtx->chConfig[chIdx].word) != E_OK)
-                {
-                    retVal = TPS2HCS08_BUSY;
-                }
-            }
-
-            /* 15h I2T_CONFIG_CHx                                            */
-            if ((skip & TPS2HCS08_SKIP_I2T) == 0u)
-            {
-                if (ExVioDb_WriteRegister_Tps2hcs08(devIdx,
-                        TPS2HCS08_CH_REG(TPS2HCS08_REG_I2T_CONFIG_CH1, chIdx),
-                        pCtx->i2tCfgCh[chIdx].word) != E_OK)
-                {
-                    retVal = TPS2HCS08_BUSY;
-                }
-            }
-        }
-    }
-
-    return retVal;
-}
-
-/*------------------------------------------------------------------------------
- *  ExVioDb_VerifyConfig_Tps2hcs08                  [ process #5 ]
- *      Reads back the configuration register and compares it with the shadow.
- *----------------------------------------------------------------------------*/
-D_STATIC uint8 ExVioDb_VerifyConfig_Tps2hcs08(void)
-{
-    uint8  devIdx;
-    uint8  chIdx;
-    uint16 regValue;
-    uint8  retVal = TPS2HCS08_COMPLETE;
-
-    for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
-    {
-        tTps2hcs08Ctx *pCtx = &exVioDbTps2hcs08Ctx[devIdx];
-
-        if (pCtx->devPresent != TRUE)
-        {
-            continue;
-        }
-
-        if (ExVioDb_ReadRegister_Tps2hcs08(devIdx, TPS2HCS08_REG_DEV_CONFIG,
-                                           &regValue) == E_OK)
-        {
-            if ((uint16)(regValue & 0x07FFu) != (uint16)(pCtx->devConfig.word & 0x07FFu))
-            {
-                TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-                    "[TPS2HCS08] DEV_CONFIG VERIFY FAIL. dev=%d w=0x%04X r=0x%04X\r\n",
-                    devIdx, pCtx->devConfig.word, regValue);
-                retVal = TPS2HCS08_BUSY;
-            }
-        }
-        else
-        {
-            retVal = TPS2HCS08_BUSY;
-        }
-
-        for (chIdx = 0u; chIdx < TPS2HCS08_CH_MAX; chIdx++)
-        {
-            if (pCtx->chCfg[chIdx].used != TRUE)
-            {
-                continue;
-            }
-
-            if (ExVioDb_ReadRegister_Tps2hcs08(devIdx,
-                    TPS2HCS08_CH_REG(TPS2HCS08_REG_ILIM_CONFIG_CH1, chIdx),
-                    &regValue) == E_OK)
-            {
-                if ((uint16)(regValue & 0x3FFFu) !=
-                    (uint16)(pCtx->ilimCfgCh[chIdx].word & 0x3FFFu))
-                {
-                    TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-                        "[TPS2HCS08] ILIM_CONFIG_CH%d VERIFY FAIL. dev=%d w=0x%04X r=0x%04X\r\n",
-                        (chIdx + 1u), devIdx, pCtx->ilimCfgCh[chIdx].word, regValue);
-                    retVal = TPS2HCS08_BUSY;
-                }
-            }
-            else
-            {
-                retVal = TPS2HCS08_BUSY;
-            }
         }
     }
 
@@ -1804,7 +1438,7 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
     switch (exVioDbTps2hcs08SetupScnState)
     {
         case TPS2HCS08_SETUP_SCN_SET_DEF:
-            exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_DB_PARSING;
+            exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_WAKEUP;
             break;
 
         // TODO: 시퀀스 변경 필요 Wakeup 이후 진행해야 함
@@ -1815,16 +1449,6 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
          * This stage must run during IC initialization to configure shadow registers
          * from DB before writing to actual hardware.
          */
-        case TPS2HCS08_SETUP_SCN_DB_PARSING:
-            for (sigIndex = 0u; sigIndex < exVioDbMemCnt; sigIndex++)
-            {
-                if (exVioDbRec[sigIndex].CAT_1 == (uint8)DB_CAT1_E_FUSE_TPS2HCS08)
-                {
-                    ExVioDb_ParsingOutputTps2hcs08Reg(sigIndex);
-                }
-            }
-            exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_WAKEUP;
-            break;
 
         case TPS2HCS08_SETUP_SCN_WAKEUP:                    /* process #2, #3 */
             ExVioDb_WakeUp_Tps2hcs08();
@@ -1875,71 +1499,8 @@ void ExVioDb_SetupScnTps2hcs08Reg(void)
             break;
 
         case TPS2HCS08_SETUP_SCN_CONFIG_WRITE:              /* process #5     */
-            /* Phase 2: Issue #5 & #6 - Timeout check */
-            if (exVioDbTps2hcs08StateTimeout >= TPS2HCS08_TICK_STATE_TIMEOUT)
-            {
-                TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-                    "[TPS2HCS08] CONFIG_WRITE timeout\r\n");
-                exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_ERROR;
-                exVioDbTps2hcs08StateTimeout = 0u;
-            }
-            else if (ExVioDb_WriteConfig_Tps2hcs08() == TPS2HCS08_COMPLETE)
-            {
-                exVioDbTps2hcs08StateTimeout = 0u;
-                exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_CONFIG_VERIFY;
-            }
-            else
-            {
-                exVioDbTps2hcs08StateTimeout++;
-            }
-            break;
-
-        case TPS2HCS08_SETUP_SCN_CONFIG_VERIFY:             /* process #5     */
-            if (ExVioDb_VerifyConfig_Tps2hcs08() == TPS2HCS08_COMPLETE)
-            {
-                /* Phase 2: Success - reset retry counters */
-                for (int devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
-                {
-                    exVioDbTps2hcs08Retry[devIdx].configVerify = 0u;
-                }
-
-                TF_STD_SWC_MNGR_LOG_SHEL_LOG_I(TAG_EEVP_EXVIODB,
-                    "[TPS2HCS08] REGISTER CONFIGURATION DONE...\r\n");
-                exVioDbTps2hcs08WaitTick      = 0u;
-                exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_DIAG_PULLDOWN;
-            }
-            else
-            {
-                /* Phase 2: Failure - check retry limit */
-                boolean allFailed = TRUE;
-
-                for (int devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
-                {
-                    if (exVioDbTps2hcs08Ctx[devIdx].devPresent == TRUE)
-                    {
-                        exVioDbTps2hcs08Retry[devIdx].configVerify++;
-
-                        if (exVioDbTps2hcs08Retry[devIdx].configVerify < TPS2HCS08_MAX_RETRY_CONFIG_VERIFY)
-                        {
-                            allFailed = FALSE;
-                        }
-                    }
-                }
-
-                if (allFailed == TRUE)
-                {
-                    /* All devices exceeded retry limit */
-                    TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-                        "[TPS2HCS08] CONFIG_VERIFY failed after %d retries\r\n",
-                        TPS2HCS08_MAX_RETRY_CONFIG_VERIFY);
-                    exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_ERROR;
-                }
-                else
-                {
-                    /* Retry configuration */
-                    exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_CONFIG_WRITE;
-                }
-            }
+            (void)ExVioDb_InitRegValue_LoadDb();
+            exVioDbTps2hcs08SetupScnState = TPS2HCS08_SETUP_SCN_DIAG_PULLDOWN;
             break;
 
         case TPS2HCS08_SETUP_SCN_DIAG_PULLDOWN:             /* process #6     */

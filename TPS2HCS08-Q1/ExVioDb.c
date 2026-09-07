@@ -253,9 +253,12 @@ D_STATIC void ExVioDb_SetupScnSupervision(void)
     }
 }
 
+/* this is mock function */
 D_STATIC void ExVioDb_LoadDb(void) 
 {
-    (void)ExVioDb_InitRegValue_LoadDb();
+    // 기구현된 Vahl_fr의 IC 드라이버 코드 구조에 맞추기 위해 사용
+    // 기대 동작: 향후 정해진 IO DB 데이터에 맞추어 파싱하여 
+    // ExVioDb_Tps2hcs08.c의 extern const tExVioDbRec    exVioDbRec[]; 생성
 }
 
 /*------------------------------------------------------------------------------

@@ -197,7 +197,6 @@ typedef struct
     uint8   port_cnt;       /* number of mapped IC ports                      */
 } tExVioDbRec;
 
-extern const tExVioDbRec    exVioDbRec[];
 extern uint16               exVioDbMemCnt;
 
 /*==============================================================================
