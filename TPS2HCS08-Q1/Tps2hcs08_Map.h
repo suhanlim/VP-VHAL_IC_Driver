@@ -113,6 +113,8 @@
 /* =========================================================================
  * Public API
  *
+ * Each mapping applies the supplied value to all TPS2HCS08_DEV_MAX devices.
+ * Devices must have matching mapped register payloads for chain-wide writes.
  * Channel-specific mappings receive ch explicitly.
  * There is NO GetChannel() / implicit channel selection.
  * ========================================================================= */
@@ -183,7 +185,7 @@ Std_ReturnType Tps2hcs08_SetMockReadRegister(uint8 addr, uint16 payload);
 /* Fixed register settings from project Write table */
 Std_ReturnType Tps2hcs08_WriteFixedInitialConfig(void);
 
-/* static-verification helpers */
+/* Chain transaction counters/results, represented by device zero. */
 uint32 Tps2hcs08_GetWriteCount(void);
 Std_ReturnType Tps2hcs08_GetLastWrite(uint8 *seqid,
                                       uint8 *addr,

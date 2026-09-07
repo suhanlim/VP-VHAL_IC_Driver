@@ -730,6 +730,15 @@ typedef struct
 #pragma endregion
 } tTps2hcs08Ctx;
 
+/* Shared by the DB driver and mapping layer; storage is owned by the DB. */
+extern tTps2hcs08Ctx exVioDbTps2hcs08Ctx[TPS2HCS08_DEV_MAX];
+
+/* These APIs perform chain-wide I/O using a common payload/read result. */
+extern Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(
+    uint8 seqid, uint8 addr, uint16 payload);
+extern Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(
+    uint8 seqid, uint8 addr, uint16 *readValue);
+
 #define TPS2HCS08_SPI_FRAME_LEN_MAX      TPS2HCS08_SPI_FRAME_LEN
 
 #define TPS2HCS08_CHAIN_BUF_LEN_MAX \

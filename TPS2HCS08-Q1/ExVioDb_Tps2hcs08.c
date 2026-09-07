@@ -80,7 +80,7 @@ extern void    ExVioDb_Tps2hcs08_Port_NotifyLpmReady(boolean ready);
 D_STATIC tTps2hcs08SetupScnState exVioDbTps2hcs08SetupScnState;
 D_STATIC tTps2hcs08RunState      exVioDbTps2hcs08RunState;
 
-D_STATIC tTps2hcs08Ctx           exVioDbTps2hcs08Ctx[TPS2HCS08_DEV_MAX];
+tTps2hcs08Ctx                    exVioDbTps2hcs08Ctx[TPS2HCS08_DEV_MAX];
 D_STATIC tTps2hcs08SpiRuntime    exVioDbTps2hcs08SpiRuntime;
 
 /* M-06: SDO header moved to context structure (tTps2hcs08Ctx.sdoHeader).
@@ -338,8 +338,6 @@ D_STATIC const tTps2hcs08FaultLogEntry exVioDbTps2hcs08ChLogTbl[] =
 /* --- SPI access ---------------------------------------------------------- */
 D_STATIC boolean        IsValidRegisterAddress_Tps2hcs08(uint8 addr);
 D_STATIC void           ExVioDb_ValidateSdoHeader_Tps2hcs08(uint8 devIdx, uint8 sdoHeader);
-D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 payload);
-D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 *readValue);
 D_STATIC uint16        *ExVioDb_GetWritableShadowPtr_Tps2hcs08(uint8 devIdx, uint8 addr);
 
 /* --- DB parsing ---------------------------------------------------------- */
@@ -478,7 +476,7 @@ D_STATIC boolean IsValidRegisterAddress_Tps2hcs08(uint8 addr)
  *  ExVioDb_WriteRegister_Tps2hcs08
  *      24bit write frame : [23]=1 [22:16]=ADDR [15:0]=DATA
  *----------------------------------------------------------------------------*/
-D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 seqid, uint8 addr, uint16 payload)
+Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 seqid, uint8 addr, uint16 payload)
 {
     uint8           txBuf[TPS2HCS08_CHAIN_BUF_LEN_MAX] = exVioDbTps2hcs08SpiRuntime.txData;
     uint8           rxBuf[TPS2HCS08_CHAIN_BUF_LEN_MAX] = exVioDbTps2hcs08SpiRuntime.rxData;
@@ -593,7 +591,7 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 seqid, uint8 addr,
  *      frame (Figure 8-8), therefore a read needs 2 transactions.
  *----------------------------------------------------------------------------*/
 // TODO: 로직 수정 필요 SPI 데이터 프레임 생성 로직 수정 필요 + SPI 요청 2번 이유 확인 필요
-D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 seqid, uint8 addr, uint16 *readValue)
+Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 seqid, uint8 addr, uint16 *readValue)
 {
     uint8           txBuf[TPS2HCS08_CHAIN_BUF_LEN_MAX] = exVioDbTps2hcs08SpiRuntime.txData;
     uint8           rxBuf[TPS2HCS08_CHAIN_BUF_LEN_MAX] = exVioDbTps2hcs08SpiRuntime.rxData;
