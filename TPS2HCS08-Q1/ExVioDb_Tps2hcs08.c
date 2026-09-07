@@ -81,6 +81,7 @@ D_STATIC tTps2hcs08SetupScnState exVioDbTps2hcs08SetupScnState;
 D_STATIC tTps2hcs08RunState      exVioDbTps2hcs08RunState;
 
 D_STATIC tTps2hcs08Ctx           exVioDbTps2hcs08Ctx[TPS2HCS08_DEV_MAX];
+D_STATIC tTps2hcs08SpiRuntime    exVioDbTps2hcs08SpiRuntime;
 
 /* M-06: SDO header moved to context structure (tTps2hcs08Ctx.sdoHeader).
  * Previously was global array exVioDbTps2hcs08SdoHeader[].
@@ -512,10 +513,10 @@ D_STATIC void ExVioDb_ValidateSdoHeader_Tps2hcs08(uint8 devIdx, uint8 sdoHeader)
  *  ExVioDb_WriteRegister_Tps2hcs08
  *      24bit write frame : [23]=1 [22:16]=ADDR [15:0]=DATA
  *----------------------------------------------------------------------------*/
-D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 payload)
+D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 seqid, uint8 addr, uint16 payload)
 {
-    uint8           txBuf[TPS2HCS08_SPI_FRAME_LEN];
-    uint8           rxBuf[TPS2HCS08_SPI_FRAME_LEN];
+    uint8           txBuf[TPS2HCS08_CHAIN_BUF_LEN_MAX] = exVioDbTps2hcs08SpiRuntime.txData;
+    uint8           rxBuf[TPS2HCS08_CHAIN_BUF_LEN_MAX] = exVioDbTps2hcs08SpiRuntime.rxData;
     uint16         *pShadow;
     Std_ReturnType  retVal = E_NOT_OK;
 
@@ -524,51 +525,40 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr
     {
         TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
             "[TPS2HCS08] INVALID REGISTER ADDRESS (RESERVED): dev=%d addr=0x%02X\r\n",
-            devIdx, addr);
+            seqid, addr);
         return E_NOT_OK;
     }
 
-    // 한개의 세트에 데이터를 채우는 로직은 적절하지만 SPI 통신을 4번 하는게 아닌 데이터 4개를 이어붙여서 한번에 보내야 함
-    if (devIdx < TPS2HCS08_DEV_MAX)
-    {
-        pShadow = ExVioDb_GetWritableShadowPtr_Tps2hcs08(devIdx, addr);
-        if (pShadow != NULL_PTR)
+	// 한개의 세트에 데이터를 채우는 로직은 적절하지만 SPI 통신을 4번 하는게 아닌 데이터 4개를 이어붙여서 한번에 보내야 함
+	pShadow = ExVioDb_GetWritableShadowPtr_Tps2hcs08(seqid, addr);
+	if (pShadow != NULL_PTR)
+	{
+        for (int i = 0; i < TPS2HCS08_DEV_MAX; i++) 
         {
-            txBuf[0] = (uint8)(TPS2HCS08_SPI_CMD_WRITE | (addr & TPS2HCS08_SPI_ADDR_MASK));
-            txBuf[1] = (uint8)((payload >> 8u) & 0x00FFu);
-            txBuf[2] = (uint8)(payload & 0x00FFu);
-
-            if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
-                                                   TPS2HCS08_SPI_FRAME_LEN) == E_OK)
-            {
-                /* SDO[23:16] is always GLOBAL_FAULT_TYPE[15:8] */
-                exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
-
-                /* Phase 2: Issue #3 - Validate SDO header immediately */
-                /* [DEACTIVATED] See M-19: Restore after hardware validation */
-                /* ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]); */
-
-                /* M-14: Update shadow ONLY on successful SPI transfer.
-                 * If SPI fails, shadow retains last known good value.
-                 * This ensures shadow always reflects chip's actual state.
-                 */
-                *pShadow = payload;
-                retVal = E_OK;
-            }
-            else
-            {
-                TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-                    "[TPS2HCS08] SPI WRITE FAIL. dev=%d addr=0x%02X\r\n", devIdx, addr);
-            }
+            txBuf[i] = (uint8)(TPS2HCS08_SPI_CMD_WRITE | (addr & TPS2HCS08_SPI_ADDR_MASK));
+		    txBuf[i+1] = (uint8)((payload >> 8u) & 0x00FFu);
+		    txBuf[i+2] = (uint8)(payload & 0x00FFu);
         }
-        else
-        {
-            TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-                "[TPS2HCS08] INVALID WRITE REGISTER. dev=%d addr=0x%02X\r\n", devIdx, addr);
-        }
-    }
 
-    return retVal;
+		if (ExVioDb_Tps2hcs08_Port_SpiTransfer(seqid, txBuf, rxBuf,
+			TPS2HCS08_SPI_FRAME_LEN) == E_OK)
+		{
+			*pShadow = payload;
+			retVal = E_OK;
+		}
+		else
+		{
+			TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+				"[TPS2HCS08] SPI WRITE FAIL. dev=%d addr=0x%02X\r\n", seqid, addr);
+		}
+	}
+	else
+	{
+		TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
+			"[TPS2HCS08] INVALID WRITE REGISTER. dev=%d addr=0x%02X\r\n", seqid, addr);
+	}
+
+	return retVal;
 }
 
 /*------------------------------------------------------------------------------
@@ -577,10 +567,10 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 devIdx, uint8 addr
  *      frame (Figure 8-8), therefore a read needs 2 transactions.
  *----------------------------------------------------------------------------*/
 // TODO: 로직 수정 필요 SPI 데이터 프레임 생성 로직 수정 필요 + SPI 요청 2번 이유 확인 필요
-D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr, uint16 *readValue)
+D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 seqid, uint8 addr, uint16 *readValue)
 {
-    uint8           txBuf[TPS2HCS08_SPI_FRAME_LEN];
-    uint8           rxBuf[TPS2HCS08_SPI_FRAME_LEN];
+    uint8           txBuf[TPS2HCS08_CHAIN_BUF_LEN_MAX] = exVioDbTps2hcs08SpiRuntime.txData;
+    uint8           rxBuf[TPS2HCS08_CHAIN_BUF_LEN_MAX] = exVioDbTps2hcs08SpiRuntime.rxData;
     Std_ReturnType  retVal = E_NOT_OK;
 
     /* M-09: Validate register address first */
@@ -588,36 +578,39 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr,
     {
         TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
             "[TPS2HCS08] INVALID REGISTER ADDRESS (RESERVED): dev=%d addr=0x%02X\r\n",
-            devIdx, addr);
+            seqid, addr);
         return E_NOT_OK;
     }
 
-    if ((devIdx < TPS2HCS08_DEV_MAX) && (readValue != NULL_PTR))
+    if (readValue != NULL_PTR)
     {
-        txBuf[0] = (uint8)(TPS2HCS08_SPI_CMD_READ | (addr & TPS2HCS08_SPI_ADDR_MASK));
-        /* M-12: Read frame data bytes must be 0x00 (datasheet p.27).
-         * Write frame uses actual data, read frame ignores these bytes.
-         */
-        txBuf[1] = 0x00u;
-        txBuf[2] = 0x00u;
+		for (int i = 0; i < TPS2HCS08_DEV_MAX; i++)
+		{
+			txBuf[0] = (uint8)(TPS2HCS08_SPI_CMD_READ | (addr & TPS2HCS08_SPI_ADDR_MASK));
+			/* M-12: Read frame data bytes must be 0x00 (datasheet p.27).
+			 * Write frame uses actual data, read frame ignores these bytes.
+			 */
+			txBuf[1] = 0x00u;
+			txBuf[2] = 0x00u;
+		}
 
         /* 1st frame : send the read command                                  */
-        if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
+        if (ExVioDb_Tps2hcs08_Port_SpiTransfer(seqid, txBuf, rxBuf,
                                                TPS2HCS08_SPI_FRAME_LEN) == E_OK)
         {
             /* Phase 2: Issue #3 - Validate SDO header from 1st frame */
             /* [DEACTIVATED] See M-19: Restore after hardware validation */
-            /* ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]); */
+            /* ExVioDb_ValidateSdoHeader_Tps2hcs08(seqid, rxBuf[0]); */
 
             /* 2nd frame : dummy read, SDO carries the data of the 1st frame  */
-            if (ExVioDb_Tps2hcs08_Port_SpiTransfer(devIdx, txBuf, rxBuf,
+            if (ExVioDb_Tps2hcs08_Port_SpiTransfer(seqid, txBuf, rxBuf,
                                                    TPS2HCS08_SPI_FRAME_LEN) == E_OK)
             {
-                exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
+                exVioDbTps2hcs08Ctx[seqid].sdoHeader = rxBuf[0];
 
                 /* Phase 2: Issue #3 - Validate SDO header from 2nd frame */
                 /* [DEACTIVATED] See M-19: Restore after hardware validation */
-                /* ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]); */
+                /* ExVioDb_ValidateSdoHeader_Tps2hcs08(seqid, rxBuf[0]); */
 
                 *readValue = (uint16)(((uint16)rxBuf[1] << 8u) | (uint16)rxBuf[2]);
                 retVal = E_OK;
@@ -627,7 +620,7 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 devIdx, uint8 addr,
         if (retVal != E_OK)
         {
             TF_STD_SWC_MNGR_LOG_SHEL_LOG_E(TAG_EEVP_EXVIODB,
-                "[TPS2HCS08] SPI READ FAIL. dev=%d addr=0x%02X\r\n", devIdx, addr);
+                "[TPS2HCS08] SPI READ FAIL. dev=%d addr=0x%02X\r\n", seqid, addr);
         }
     }
 

@@ -54,6 +54,9 @@
  * Ensures compiler bit-field packing matches datasheet.
  */
 
+// Mock SeqId TODO BSW Configuration generate
+#define SeqId = 0u;
+
 #define TPS2HCS08_CH1                     (0u)
 #define TPS2HCS08_CH2                     (1u)
 
@@ -686,7 +689,7 @@ typedef struct
 #pragma endregion
 } tTps2hcs08Ctx;
 
-#define TPS2HCS08_SPI_FRAME_LEN_MAX      TPS2HCS08_SPI_FRAME_LEN_CRC
+#define TPS2HCS08_SPI_FRAME_LEN_MAX      TPS2HCS08_SPI_FRAME_LEN
 
 #define TPS2HCS08_CHAIN_BUF_LEN_MAX \
     (TPS2HCS08_SPI_FRAME_LEN_MAX * TPS2HCS08_DEV_MAX)

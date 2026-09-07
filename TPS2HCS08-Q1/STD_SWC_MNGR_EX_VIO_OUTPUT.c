@@ -30,6 +30,18 @@ D_STATIC Std_ReturnType ExVioDb_Tps2hcs08_Port_SpiTransfer(uint8 seqid, const ui
 		// rxData는 BSW 설정에 따라 RTE에서 제공하는 버퍼로 연결되어 있으면 수동으로 채울 필요가 없다.
 		// seqid 설정이 동기 방식이면 이곳에서 rxData 값을 기반으로 동작을 수행한다.
 		// seqid 설정이 비동기 방식이면 callback 함수에서 동작을 수행한다.
+		/* SDO[23:16] is always GLOBAL_FAULT_TYPE[15:8] */
+        // exVioDbTps2hcs08Ctx[devIdx].sdoHeader = rxBuf[0];
+
+        /* Phase 2: Issue #3 - Validate SDO header immediately */
+        /* [DEACTIVATED] See M-19: Restore after hardware validation */
+        /* ExVioDb_ValidateSdoHeader_Tps2hcs08(devIdx, rxBuf[0]); */
+
+        /* M-14: Update shadow ONLY on successful SPI transfer.
+        * If SPI fails, shadow retains last known good value.
+        * This ensures shadow always reflects chip's actual state.
+        */
+
 		err = E_OK;
     }
 
