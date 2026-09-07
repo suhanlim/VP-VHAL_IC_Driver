@@ -705,12 +705,12 @@ void ExVioDb_InitRegValue_LoadDb(void)
              */
             pCtx->ilimCfgCh[chIdx].bits.CAP_CHRG_CHx        = TPS2HCS08_CAP_CHRG_NONE;
             pCtx->ilimCfgCh[chIdx].bits.INRUSH_DURATION_CHx = 0u;
-            pCtx->ilimCfgCh[chIdx].bits.INRUSH_LIMIT_CHx    = 0x8u;  /* 40A    */
-            pCtx->ilimCfgCh[chIdx].bits.ILIMIT_SET_CHx      = 0x8u;  /* 40A    */
+            pCtx->ilimCfgCh[chIdx].bits.INRUSH_LIMIT_CHx    = 0x0u;  /* 40A    */
+            pCtx->ilimCfgCh[chIdx].bits.ILIMIT_SET_CHx      = 0x0u;  /* 40A    */
 
             /* --- 10h CHx_CONFIG ------------------------------------------ */
-            pCtx->chConfig[chIdx].bits.VSNS_DIS_CHx         = 1u;  /* from DB     */
-            pCtx->chConfig[chIdx].bits.SLRT_CHx             = 1u;
+            pCtx->chConfig[chIdx].bits.VSNS_DIS_CHx         = 0u;  /* from DB     */
+            pCtx->chConfig[chIdx].bits.SLRT_CHx             = 0u;
 
             /* --- 15h I2T_CONFIG_CHx -------------------------------------- */
             pCtx->i2tCfgCh[chIdx].bits.ISWCL_CHx        = 0u;
