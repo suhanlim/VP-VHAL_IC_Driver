@@ -168,7 +168,7 @@ typedef enum
 {
     TPS2HCS08_DIAG_NORMAL = 0,
     TPS2HCS08_DIAG_OPEN,
-    TPS2HCS08_DIAG_SHORT_VBB
+    TPS2HCS08_OPEN_SHORT_DIAG_SHORT_VBB
 } tTps2hcs08OpenShortResult;
 
 Std_ReturnType Tps2hcs08_OpenShortDiag(

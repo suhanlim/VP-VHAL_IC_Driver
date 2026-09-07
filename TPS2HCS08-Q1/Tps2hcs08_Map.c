@@ -194,82 +194,82 @@ void Tps2hcs08_Init(void)
     s_ctx.used = USED_1;
 
     /* LPM reset/project defaults */
-    s_ctx.lpm.autoLpmExitCh2 = 0u;
-    s_ctx.lpm.autoLpmExitCh1 = 0u;
+    s_ctx.lpm.bits.AUTO_LPM_EXIT_CH2 = 0u;
+    s_ctx.lpm.bits.AUTO_LPM_EXIT_CH1 = 0u;
 
     /* FAULT_MASK reset, then project fixed configuration changes 5/4 to 1 */
-    s_ctx.faultMask.maskShrtVbb = 1u;
-    s_ctx.faultMask.maskOlOff = 1u;
-    s_ctx.faultMask.maskSpiErr = 0u;
-    s_ctx.faultMask.maskWdErr = 0u;
-    s_ctx.faultMask.maskVbbUvlo = 0u;
+    s_ctx.faultMask.bits.MASK_SHRT_VBB = 1u;
+    s_ctx.faultMask.bits.MASK_OL_OFF = 1u;
+    s_ctx.faultMask.bits.MASK_SPI_ERR = 0u;
+    s_ctx.faultMask.bits.MASK_WD_ERR = 0u;
+    s_ctx.faultMask.bits.MASK_VBB_UVLO = 0u;
 
     /* SW_STATE reset */
-    s_ctx.swState.ch2On = 0u;
-    s_ctx.swState.ch1On = 0u;
+    s_ctx.swState.bits.CH2_ON = 0u;
+    s_ctx.swState.bits.CH1_ON = 0u;
 
     /* DEV_CONFIG project fixed settings */
-    s_ctx.devConfig.ch2LhIn = 1u;
-    s_ctx.devConfig.ch1LhIn = 1u;
-    s_ctx.devConfig.pwmShiftDis = 0u;
-    s_ctx.devConfig.autoLpmEntry = 0u;
-    s_ctx.devConfig.parallel12 = 0u;
-    s_ctx.devConfig.wdEn = 1u;
-    s_ctx.devConfig.wdTo = 1u;
-    s_ctx.devConfig.fltLtchDis = 0u;
+    s_ctx.devConfig.bits.CH2_LH_IN = 1u;
+    s_ctx.devConfig.bits.CH1_LH_IN = 1u;
+    s_ctx.devConfig.bits.PWM_SHIFT_DIS = 0u;
+    s_ctx.devConfig.bits.AUTO_LPM_ENTRY = 0u;
+    s_ctx.devConfig.bits.PARALLEL_12 = 0u;
+    s_ctx.devConfig.bits.WD_EN = 1u;
+    s_ctx.devConfig.bits.WD_TO = 1u;
+    s_ctx.devConfig.bits.FLT_LTCH_DIS = 0u;
 
     /*
      * ADC_CONFIG reset = FF3Ah.
      * Project Write requirement changes ADC_VSNS_DIS to 0.
      */
-    s_ctx.adcConfig.adcIsnsSampleConfig = 0u;
-    s_ctx.adcConfig.adcVdsDis = 1u;
-    s_ctx.adcConfig.adcVsnsDis = 0u;
-    s_ctx.adcConfig.adcTsnsDis = 1u;
-    s_ctx.adcConfig.adcIsnsDis = 0u;
-    s_ctx.adcConfig.adcVbbDis = 1u;
-    s_ctx.adcConfig.adcDis = 0u;
+    s_ctx.adcConfig.bits.ADC_ISNS_SAMPLE_CONFIG = 0u;
+    s_ctx.adcConfig.bits.ADC_VDS_DIS = 1u;
+    s_ctx.adcConfig.bits.ADC_VSNS_DIS = 0u;
+    s_ctx.adcConfig.bits.ADC_TSNS_DIS = 1u;
+    s_ctx.adcConfig.bits.ADC_ISNS_DIS = 0u;
+    s_ctx.adcConfig.bits.ADC_VBB_DIS = 1u;
+    s_ctx.adcConfig.bits.ADC_DIS = 0u;
 
     for (ch = 0u; ch < TPS2HCS08_CH_MAX; ch++)
     {
         s_ctx.pwmMode[ch] = PWM_O;
 
         /* PWM_CHx reset = F000h */
-        s_ctx.pwmCh[ch].pwmFreq = 0u;
-        s_ctx.pwmCh[ch].pwmDuty = 0u;
-        s_ctx.pwmCh[ch].pwmEn = 0u;
+        s_ctx.pwmCh[ch].bits.PWM_FREQ_CHx = 0u;
+        s_ctx.pwmCh[ch].bits.PWM_DTY_CHx = 0u;
+        s_ctx.pwmCh[ch].bits.PWM_EN_CHx = 0u;
 
         /*
          * ILIM_CONFIG_CHx reset = 0088h.
          * Project fixed setting changes I2T_EN = 1.
          */
-        s_ctx.ilimCfgCh[ch].capChrg = 0u;
-        s_ctx.ilimCfgCh[ch].i2tEn = 1u;
-        s_ctx.ilimCfgCh[ch].inrushDuration = 0u;
-        s_ctx.ilimCfgCh[ch].inrushLimit = 8u;
-        s_ctx.ilimCfgCh[ch].ilimitSet = 8u;
+        s_ctx.ilimCfgCh[ch].bits.CAP_CHRG_CHx = 0u;
+        s_ctx.ilimCfgCh[ch].bits.I2T_EN_CHx = 1u;
+        s_ctx.ilimCfgCh[ch].bits.INRUSH_DURATION_CHx = 0u;
+        s_ctx.ilimCfgCh[ch].bits.INRUSH_LIMIT_CHx = 8u;
+        s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 8u;
 
         /*
          * CHx_CONFIG reset = C002h.
          * Project fixed OL_SVBB_BLANK = 3.
          */
-        s_ctx.chConfig[ch].vsnsDis = 1u;
-        s_ctx.chConfig[ch].vdsSnsDis = 1u;
-        s_ctx.chConfig[ch].isnsDis = 0u;
-        s_ctx.chConfig[ch].isnsScale = 0u;
-        s_ctx.chConfig[ch].olOnEn = 0u;
-        s_ctx.chConfig[ch].olSvbbBlank = 3u;
-        s_ctx.chConfig[ch].olPuStr = 0u;
-        s_ctx.chConfig[ch].olSvbbEn = 0u;
-        s_ctx.chConfig[ch].latch = 0u;
-        s_ctx.chConfig[ch].slrt = 2u;
+        s_ctx.chConfig[ch].bits.VSNS_DIS_CHx = 1u;
+        s_ctx.chConfig[ch].bits.VDS_SNS_DIS_CHx = 1u;
+        s_ctx.chConfig[ch].bits.ISNS_DIS_CHx = 0u;
+        s_ctx.chConfig[ch].bits.ISNS_SCALE_CHx = 0u;
+        s_ctx.chConfig[ch].bits.OL_ON_EN_CHx = 0u;
+        s_ctx.chConfig[ch].bits.OL_SVBB_BLANK_CHx = 3u;
+        s_ctx.chConfig[ch].bits.OL_PU_STR_CHx = 0u;
+        s_ctx.chConfig[ch].bits.OL_SVBB_EN_CHx = 0u;
+        s_ctx.chConfig[ch].bits.LATCH_CHx = 0u;
+        s_ctx.chConfig[ch].bits.SLRT_CHx = 2u;
 
         /* I2T_CONFIG_CHx reset = 0000h */
-        s_ctx.i2tCfgCh[ch].tcldn = 0u;
-        s_ctx.i2tCfgCh[ch].swclDlyTmr = 0u;
-        s_ctx.i2tCfgCh[ch].iswcl = 0u;
-        s_ctx.i2tCfgCh[ch].i2tTrip = 0u;
-        s_ctx.i2tCfgCh[ch].nomCur = 0u;
+        s_ctx.i2tCfgCh[ch].bits.TCLDN_CHx = 0u;
+        s_ctx.i2tCfgCh[ch].bits.SWCL_DLY_TMR_CHx = 0u;
+        s_ctx.i2tCfgCh[ch].bits.ISWCL_CHx = 0u;
+        s_ctx.i2tCfgCh[ch].bits.I2T_TRIP_CHx = 0u;
+        s_ctx.i2tCfgCh[ch].bits.NOM_CUR_CHx = 0u;
     }
 }
 
@@ -408,8 +408,8 @@ Std_ReturnType Tps2hcs08_MapUsed(uint8 ch, uint8 id)
         return E_NOT_OK;
     }
 
-    s_ctx.swState.ch1On = 0u;
-    s_ctx.swState.ch2On = 0u;
+    s_ctx.swState.bits.CH1_ON = 0u;
+    s_ctx.swState.bits.CH2_ON = 0u;
 
     payload = Tps2hcs08_BuildSwStatePayload(&s_ctx.swState);
 
@@ -422,7 +422,7 @@ Std_ReturnType Tps2hcs08_MapUsed(uint8 ch, uint8 id)
     }
 
     s_ctx.used = id;
-    s_ctx.devConfig.parallel12 = (id == USED_2) ? 1u : 0u;
+    s_ctx.devConfig.bits.PARALLEL_12 = (id == USED_2) ? 1u : 0u;
 
     payload = Tps2hcs08_BuildDevConfigPayload(&s_ctx.devConfig);
 
@@ -463,23 +463,23 @@ Std_ReturnType Tps2hcs08_MapMoc(uint8 ch, uint8 id)
     switch (id)
     {
         case MOC_1A:
-            s_ctx.i2tCfgCh[ch].nomCur  = 0x0u;
-            s_ctx.i2tCfgCh[ch].i2tTrip = 0x0u;
+            s_ctx.i2tCfgCh[ch].bits.NOM_CUR_CHx  = 0x0u;
+            s_ctx.i2tCfgCh[ch].bits.I2T_TRIP_CHx = 0x0u;
             break;
 
         case MOC_3A:
-            s_ctx.i2tCfgCh[ch].nomCur  = 0x0u;
-            s_ctx.i2tCfgCh[ch].i2tTrip = 0x2u;
+            s_ctx.i2tCfgCh[ch].bits.NOM_CUR_CHx  = 0x0u;
+            s_ctx.i2tCfgCh[ch].bits.I2T_TRIP_CHx = 0x2u;
             break;
 
         case MOC_5A:
-            s_ctx.i2tCfgCh[ch].nomCur  = 0x3u;
-            s_ctx.i2tCfgCh[ch].i2tTrip = 0x5u;
+            s_ctx.i2tCfgCh[ch].bits.NOM_CUR_CHx  = 0x3u;
+            s_ctx.i2tCfgCh[ch].bits.I2T_TRIP_CHx = 0x5u;
             break;
 
         case MOC_10A:
-            s_ctx.i2tCfgCh[ch].nomCur  = 0x6u;
-            s_ctx.i2tCfgCh[ch].i2tTrip = 0xCu;
+            s_ctx.i2tCfgCh[ch].bits.NOM_CUR_CHx  = 0x6u;
+            s_ctx.i2tCfgCh[ch].bits.I2T_TRIP_CHx = 0xCu;
             break;
 
         case MOC_15A:
@@ -488,13 +488,13 @@ Std_ReturnType Tps2hcs08_MapMoc(uint8 ch, uint8 id)
                 ExVioDb_LogMappingFallback(
                     s_ctx.signalId, "MOC", ch, id, "MOC_10A");
 
-                s_ctx.i2tCfgCh[ch].nomCur  = 0x6u;
-                s_ctx.i2tCfgCh[ch].i2tTrip = 0xCu;
+                s_ctx.i2tCfgCh[ch].bits.NOM_CUR_CHx  = 0x6u;
+                s_ctx.i2tCfgCh[ch].bits.I2T_TRIP_CHx = 0xCu;
             }
             else
             {
-                s_ctx.i2tCfgCh[ch].nomCur  = 0x5u;
-                s_ctx.i2tCfgCh[ch].i2tTrip = 0xAu;
+                s_ctx.i2tCfgCh[ch].bits.NOM_CUR_CHx  = 0x5u;
+                s_ctx.i2tCfgCh[ch].bits.I2T_TRIP_CHx = 0xAu;
             }
             break;
 
@@ -504,13 +504,13 @@ Std_ReturnType Tps2hcs08_MapMoc(uint8 ch, uint8 id)
                 ExVioDb_LogMappingFallback(
                     s_ctx.signalId, "MOC", ch, id, "MOC_10A");
 
-                s_ctx.i2tCfgCh[ch].nomCur  = 0x6u;
-                s_ctx.i2tCfgCh[ch].i2tTrip = 0xCu;
+                s_ctx.i2tCfgCh[ch].bits.NOM_CUR_CHx  = 0x6u;
+                s_ctx.i2tCfgCh[ch].bits.I2T_TRIP_CHx = 0xCu;
             }
             else
             {
-                s_ctx.i2tCfgCh[ch].nomCur  = 0x6u;
-                s_ctx.i2tCfgCh[ch].i2tTrip = 0xFu;
+                s_ctx.i2tCfgCh[ch].bits.NOM_CUR_CHx  = 0x6u;
+                s_ctx.i2tCfgCh[ch].bits.I2T_TRIP_CHx = 0xFu;
             }
             break;
 
@@ -520,16 +520,16 @@ Std_ReturnType Tps2hcs08_MapMoc(uint8 ch, uint8 id)
                 ExVioDb_LogMappingFallback(
                     s_ctx.signalId, "MOC", ch, id, "MOC_20A");
 
-                s_ctx.i2tCfgCh[ch].nomCur  = 0x6u;
-                s_ctx.i2tCfgCh[ch].i2tTrip = 0xFu;
+                s_ctx.i2tCfgCh[ch].bits.NOM_CUR_CHx  = 0x6u;
+                s_ctx.i2tCfgCh[ch].bits.I2T_TRIP_CHx = 0xFu;
             }
             else
             {
                 ExVioDb_LogMappingFallback(
                     s_ctx.signalId, "MOC", ch, id, "MOC_10A");
 
-                s_ctx.i2tCfgCh[ch].nomCur  = 0x6u;
-                s_ctx.i2tCfgCh[ch].i2tTrip = 0xCu;
+                s_ctx.i2tCfgCh[ch].bits.NOM_CUR_CHx  = 0x6u;
+                s_ctx.i2tCfgCh[ch].bits.I2T_TRIP_CHx = 0xCu;
             }
             break;
 
@@ -544,8 +544,8 @@ Std_ReturnType Tps2hcs08_MapMoc(uint8 ch, uint8 id)
      * These two fields are part of the MOC mapping table and must not be
      * omitted even though they have the same value for every MOC row.
      */
-    s_ctx.i2tCfgCh[ch].swclDlyTmr = 0x3u;
-    s_ctx.i2tCfgCh[ch].iswcl      = 0x0u;
+    s_ctx.i2tCfgCh[ch].bits.SWCL_DLY_TMR_CHx = 0x3u;
+    s_ctx.i2tCfgCh[ch].bits.ISWCL_CHx      = 0x0u;
 
     addr = Tps2hcs08_GetI2tAddr(ch);
     payload = Tps2hcs08_BuildI2tPayload(&s_ctx.i2tCfgCh[ch]);
@@ -597,39 +597,39 @@ Std_ReturnType Tps2hcs08_MapOcp(uint8 ch, uint8 id)
     switch (id)
     {
         case OCP_100mV:
-            s_ctx.ilimCfgCh[ch].ilimitSet = 0x0u;
+            s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 0x0u;
             break;
 
         case OCP_200mV:
-            s_ctx.ilimCfgCh[ch].ilimitSet = 0x1u;
+            s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 0x1u;
             break;
 
         case OCP_300mV:
-            s_ctx.ilimCfgCh[ch].ilimitSet = 0x2u;
+            s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 0x2u;
             break;
 
         case OCP_400mV:
-            s_ctx.ilimCfgCh[ch].ilimitSet = 0x3u;
+            s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 0x3u;
             break;
 
         case OCP_500mV:
-            s_ctx.ilimCfgCh[ch].ilimitSet = 0x4u;
+            s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 0x4u;
             break;
 
         case OCP_600mV:
-            s_ctx.ilimCfgCh[ch].ilimitSet = 0x5u;
+            s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 0x5u;
             break;
 
         case OCP_700mV:
-            s_ctx.ilimCfgCh[ch].ilimitSet = 0x6u;
+            s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 0x6u;
             break;
 
         case OCP_800mV:
-            s_ctx.ilimCfgCh[ch].ilimitSet = 0x7u;
+            s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 0x7u;
             break;
 
         case OCP_9:
-            s_ctx.ilimCfgCh[ch].ilimitSet = 0x8u;
+            s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 0x8u;
             break;
 
         case OCP_10:
@@ -644,7 +644,7 @@ Std_ReturnType Tps2hcs08_MapOcp(uint8 ch, uint8 id)
                 return E_NOT_OK;
             }
 
-            s_ctx.ilimCfgCh[ch].ilimitSet = 0x9u;
+            s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 0x9u;
             break;
 
         case OCP_11:
@@ -659,7 +659,7 @@ Std_ReturnType Tps2hcs08_MapOcp(uint8 ch, uint8 id)
                 return E_NOT_OK;
             }
 
-            s_ctx.ilimCfgCh[ch].ilimitSet = 0xAu;
+            s_ctx.ilimCfgCh[ch].bits.ILIMIT_SET_CHx = 0xAu;
             break;
 
         default:
@@ -732,18 +732,18 @@ Std_ReturnType Tps2hcs08_MapPwm(uint8 ch, uint8 id)
     switch (id)
     {
         case PWM_O:
-            s_ctx.ilimCfgCh[ch].capChrg = 0x0u;
-            s_ctx.pwmCh[ch].pwmEn       = 0x1u;
+            s_ctx.ilimCfgCh[ch].bits.CAP_CHRG_CHx = 0x0u;
+            s_ctx.pwmCh[ch].bits.PWM_EN_CHx       = 0x1u;
             break;
 
         case PWM_X:
-            s_ctx.ilimCfgCh[ch].capChrg = 0x0u;
-            s_ctx.pwmCh[ch].pwmEn       = 0x0u;
+            s_ctx.ilimCfgCh[ch].bits.CAP_CHRG_CHx = 0x0u;
+            s_ctx.pwmCh[ch].bits.PWM_EN_CHx       = 0x0u;
             break;
 
         case PWM_C:
-            s_ctx.ilimCfgCh[ch].capChrg = 0x2u;
-            s_ctx.pwmCh[ch].pwmEn       = 0x0u;
+            s_ctx.ilimCfgCh[ch].bits.CAP_CHRG_CHx = 0x2u;
+            s_ctx.pwmCh[ch].bits.PWM_EN_CHx       = 0x0u;
             break;
 
         default:
@@ -803,11 +803,11 @@ Std_ReturnType Tps2hcs08_MapOld(uint8 ch, uint8 id)
     switch (id)
     {
         case OLD_OFF:
-            s_ctx.chConfig[ch].olSvbbEn = 0x0u;
+            s_ctx.chConfig[ch].bits.OL_SVBB_EN_CHx = 0x0u;
             break;
 
         case OLD_PWR:
-            s_ctx.chConfig[ch].olSvbbEn = 0x2u;
+            s_ctx.chConfig[ch].bits.OL_SVBB_EN_CHx = 0x2u;
             break;
 
         default:
@@ -856,7 +856,7 @@ Std_ReturnType Tps2hcs08_MapPwmFreq(uint8 ch, uint8 id)
         return E_NOT_OK;
     }
 
-    s_ctx.pwmCh[ch].pwmFreq = id;
+    s_ctx.pwmCh[ch].bits.PWM_FREQ_CHx = id;
 
     addr = Tps2hcs08_GetPwmAddr(ch);
     payload = Tps2hcs08_BuildPwmPayload(&s_ctx.pwmCh[ch]);
@@ -902,11 +902,11 @@ Std_ReturnType Tps2hcs08_MapCt(uint8 ch, uint8 id)
 
     if (s_ctx.pwmMode[ch] == PWM_X)
     {
-        s_ctx.ilimCfgCh[ch].inrushDuration = 0x4u;
+        s_ctx.ilimCfgCh[ch].bits.INRUSH_DURATION_CHx = 0x4u;
     }
     else
     {
-        s_ctx.ilimCfgCh[ch].inrushDuration = id;
+        s_ctx.ilimCfgCh[ch].bits.INRUSH_DURATION_CHx = id;
     }
 
     addr = Tps2hcs08_GetIlimAddr(ch);
@@ -943,7 +943,7 @@ Std_ReturnType Tps2hcs08_MapSr(uint8 ch, uint8 id)
         return E_NOT_OK;
     }
 
-    s_ctx.chConfig[ch].slrt = id;
+    s_ctx.chConfig[ch].bits.SLRT_CHx = id;
 
     addr = Tps2hcs08_GetChConfigAddr(ch);
     payload = Tps2hcs08_BuildChConfigPayload(&s_ctx.chConfig[ch]);
@@ -981,11 +981,11 @@ Std_ReturnType Tps2hcs08_MapVolDet(uint8 ch, uint8 id)
     switch (id)
     {
         case VOL_DET_OFF:
-            s_ctx.chConfig[ch].vsnsDis = 0x1u;
+            s_ctx.chConfig[ch].bits.VSNS_DIS_CHx = 0x1u;
             break;
 
         case VOL_DET_ON:
-            s_ctx.chConfig[ch].vsnsDis = 0x0u;
+            s_ctx.chConfig[ch].bits.VSNS_DIS_CHx = 0x0u;
             break;
 
         default:
@@ -1039,11 +1039,11 @@ Std_ReturnType Tps2hcs08_MapDefValue(uint8 ch, uint8 id)
 
     if (ch == TPS2HCS08_CH1)
     {
-        s_ctx.swState.ch1On = (id == DEF_ACTIVE) ? 1u : 0u;
+        s_ctx.swState.bits.CH1_ON = (id == DEF_ACTIVE) ? 1u : 0u;
     }
     else
     {
-        s_ctx.swState.ch2On = (id == DEF_ACTIVE) ? 1u : 0u;
+        s_ctx.swState.bits.CH2_ON = (id == DEF_ACTIVE) ? 1u : 0u;
     }
 
     payload = Tps2hcs08_BuildSwStatePayload(&s_ctx.swState);
@@ -1091,7 +1091,7 @@ Std_ReturnType Tps2hcs08_MapPwmDuty(uint8 ch, uint8 id)
             return E_NOT_OK;
         }
 
-        s_ctx.ilimCfgCh[ch].inrushLimit = id;
+        s_ctx.ilimCfgCh[ch].bits.INRUSH_LIMIT_CHx = id;
 
         addr = Tps2hcs08_GetIlimAddr(ch);
         payload = Tps2hcs08_BuildIlimPayload(&s_ctx.ilimCfgCh[ch]);
@@ -1132,18 +1132,18 @@ D_STATIC void Tps2hcs08_ParseFltStat(
         return;
     }
 
-    reg->thermalWrn  = (uint8)((payload >> 0u)  & 0x01u);
-    reg->olOff       = (uint8)((payload >> 2u)  & 0x01u);
-    reg->shrtVbb     = (uint8)((payload >> 3u)  & 0x01u);
-    reg->ilimit      = (uint8)((payload >> 4u)  & 0x01u);
-    reg->thermalSd   = (uint8)((payload >> 5u)  & 0x01u);
-    reg->lpmWake     = (uint8)((payload >> 6u)  & 0x01u);
-    reg->i2tFlt      = (uint8)((payload >> 7u)  & 0x01u);
-    reg->voutErr     = (uint8)((payload >> 8u)  & 0x01u);
-    reg->swStateStat = (uint8)((payload >> 9u)  & 0x01u);
-    reg->flt         = (uint8)((payload >> 10u) & 0x01u);
-    reg->latchStat   = (uint8)((payload >> 11u) & 0x01u);
-    reg->i2tMod      = (uint8)((payload >> 12u) & 0x01u);
+    reg->bits.THERMAL_WRN_CHx  = (uint8)((payload >> 0u)  & 0x01u);
+    reg->bits.OL_OFF_CHx       = (uint8)((payload >> 2u)  & 0x01u);
+    reg->bits.SHRT_VBB_CHx     = (uint8)((payload >> 3u)  & 0x01u);
+    reg->bits.ILIMIT_CHx      = (uint8)((payload >> 4u)  & 0x01u);
+    reg->bits.THERMAL_SD_CHx   = (uint8)((payload >> 5u)  & 0x01u);
+    reg->bits.LPM_WAKE_CHx     = (uint8)((payload >> 6u)  & 0x01u);
+    reg->bits.I2T_FLT_CHx      = (uint8)((payload >> 7u)  & 0x01u);
+    reg->bits.VOUT_ERR_CHx     = (uint8)((payload >> 8u)  & 0x01u);
+    reg->bits.SW_STATE_STAT_CHx = (uint8)((payload >> 9u)  & 0x01u);
+    reg->bits.FLT_CHx         = (uint8)((payload >> 10u) & 0x01u);
+    reg->bits.LATCH_STAT_CHx   = (uint8)((payload >> 11u) & 0x01u);
+    reg->bits.I2T_MOD_CHx      = (uint8)((payload >> 12u) & 0x01u);
 }
 
 Std_ReturnType Tps2hcs08_OpenShortDiag(
@@ -1183,9 +1183,9 @@ Std_ReturnType Tps2hcs08_OpenShortDiag(
      * Initial diagnosis is only allowed while output is OFF.
      */
     if (((ch == TPS2HCS08_CH1) &&
-         (s_ctx.swState.ch1On != 0u)) ||
+         (s_ctx.swState.bits.CH1_ON != 0u)) ||
         ((ch == TPS2HCS08_CH2) &&
-         (s_ctx.swState.ch2On != 0u)))
+         (s_ctx.swState.bits.CH2_ON != 0u)))
     {
         ExVioDb_LogMappingError(
             s_ctx.signalId,
@@ -1202,7 +1202,7 @@ Std_ReturnType Tps2hcs08_OpenShortDiag(
      * OL_SVBB_EN_CHx = 2h
      * =============================================================== */
 
-    s_ctx.chConfig[ch].olSvbbEn = 0x2u;
+    s_ctx.chConfig[ch].bits.OL_SVBB_EN_CHx = 0x2u;
 
     addr = Tps2hcs08_GetChConfigAddr(ch);
 
@@ -1241,7 +1241,7 @@ Std_ReturnType Tps2hcs08_OpenShortDiag(
      * OL_OFF_CHx = 0
      * -> NORMAL
      */
-    if (fltStat.olOff == 0u)
+    if (fltStat.bits.OL_OFF_CHx == 0u)
     {
         *result = TPS2HCS08_DIAG_NORMAL;
         return E_OK;
@@ -1254,7 +1254,7 @@ Std_ReturnType Tps2hcs08_OpenShortDiag(
      * OL_SVBB_EN_CHx = 1h
      * =============================================================== */
 
-    s_ctx.chConfig[ch].olSvbbEn = 0x1u;
+    s_ctx.chConfig[ch].bits.OL_SVBB_EN_CHx = 0x1u;
 
     addr = Tps2hcs08_GetChConfigAddr(ch);
 
@@ -1293,13 +1293,13 @@ Std_ReturnType Tps2hcs08_OpenShortDiag(
      * SHRT_VBB_CHx = 0 -> OPEN
      * SHRT_VBB_CHx = 1 -> Battery Short
      */
-    if (fltStat.shrtVbb == 0u)
+    if (fltStat.bits.SHRT_VBB_CHx == 0u)
     {
         *result = TPS2HCS08_DIAG_OPEN;
     }
     else
     {
-        *result = TPS2HCS08_DIAG_SHORT_VBB;
+        *result = TPS2HCS08_OPEN_SHORT_DIAG_SHORT_VBB;
     }
 
     return E_OK;

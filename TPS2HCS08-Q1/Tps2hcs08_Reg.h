@@ -12,11 +12,11 @@
 #define TPS2HCS08_CH_MAX                    (2u)
 
 /* =========================================================================
- * Typed software-shadow register structures
+ * Shared register types
  *
  * IMPORTANT:
- * - These are NOT C bit-field structures.
- * - Each member is simply the logical IC register field value.
+ * - Register unions and bit-fields are defined in ExVioDb_Tps2hcs08.h.
+ * - Logical IC register fields are accessed through the bits member.
  * - Map functions only assign these fields.
  * - Hardware bit positions are handled only by BuildXXXPayload().
  * ========================================================================= */
@@ -33,8 +33,8 @@ D_STATIC inline uint16 Tps2hcs08_BuildLpmPayload(
 {
     uint16 payload = 0xFFF8u;
 
-    payload |= (uint16)((uint16)reg->autoLpmExitCh2 << 2u);
-    payload |= (uint16)((uint16)reg->autoLpmExitCh1 << 1u);
+    payload |= (uint16)((uint16)reg->bits.AUTO_LPM_EXIT_CH2 << 2u);
+    payload |= (uint16)((uint16)reg->bits.AUTO_LPM_EXIT_CH1 << 1u);
 
     return payload;
 }
@@ -44,11 +44,11 @@ D_STATIC inline uint16 Tps2hcs08_BuildFaultMaskPayload(
 {
     uint16 payload = 0xFF80u;
 
-    payload |= (uint16)((uint16)reg->maskShrtVbb << 5u);
-    payload |= (uint16)((uint16)reg->maskOlOff   << 4u);
-    payload |= (uint16)((uint16)reg->maskSpiErr  << 2u);
-    payload |= (uint16)((uint16)reg->maskWdErr   << 1u);
-    payload |= (uint16)reg->maskVbbUvlo;
+    payload |= (uint16)((uint16)reg->bits.MASK_SHRT_VBB << 5u);
+    payload |= (uint16)((uint16)reg->bits.MASK_OL_OFF   << 4u);
+    payload |= (uint16)((uint16)reg->bits.MASK_SPI_ERR  << 2u);
+    payload |= (uint16)((uint16)reg->bits.MASK_WD_ERR   << 1u);
+    payload |= (uint16)reg->bits.MASK_VBB_UVLO;
 
     return payload;
 }
@@ -58,8 +58,8 @@ D_STATIC inline uint16 Tps2hcs08_BuildSwStatePayload(
 {
     uint16 payload = 0xFFFCu;
 
-    payload |= (uint16)((uint16)reg->ch2On << 1u);
-    payload |= (uint16)reg->ch1On;
+    payload |= (uint16)((uint16)reg->bits.CH2_ON << 1u);
+    payload |= (uint16)reg->bits.CH1_ON;
 
     return payload;
 }
@@ -69,14 +69,14 @@ D_STATIC inline uint16 Tps2hcs08_BuildDevConfigPayload(
 {
     uint16 payload = 0xF800u;
 
-    payload |= (uint16)((uint16)reg->ch2LhIn      << 9u);
-    payload |= (uint16)((uint16)reg->ch1LhIn      << 7u);
-    payload |= (uint16)((uint16)reg->pwmShiftDis  << 6u);
-    payload |= (uint16)((uint16)reg->autoLpmEntry << 5u);
-    payload |= (uint16)((uint16)reg->parallel12   << 4u);
-    payload |= (uint16)((uint16)reg->wdEn         << 3u);
-    payload |= (uint16)((uint16)reg->wdTo         << 1u);
-    payload |= (uint16)reg->fltLtchDis;
+    payload |= (uint16)((uint16)reg->bits.CH2_LH_IN      << 9u);
+    payload |= (uint16)((uint16)reg->bits.CH1_LH_IN      << 7u);
+    payload |= (uint16)((uint16)reg->bits.PWM_SHIFT_DIS  << 6u);
+    payload |= (uint16)((uint16)reg->bits.AUTO_LPM_ENTRY << 5u);
+    payload |= (uint16)((uint16)reg->bits.PARALLEL_12   << 4u);
+    payload |= (uint16)((uint16)reg->bits.WD_EN         << 3u);
+    payload |= (uint16)((uint16)reg->bits.WD_TO         << 1u);
+    payload |= (uint16)reg->bits.FLT_LTCH_DIS;
 
     return payload;
 }
@@ -86,13 +86,13 @@ D_STATIC inline uint16 Tps2hcs08_BuildAdcConfigPayload(
 {
     uint16 payload = 0xFF00u;
 
-    payload |= (uint16)((uint16)reg->adcIsnsSampleConfig << 6u);
-    payload |= (uint16)((uint16)reg->adcVdsDis           << 5u);
-    payload |= (uint16)((uint16)reg->adcVsnsDis          << 4u);
-    payload |= (uint16)((uint16)reg->adcTsnsDis          << 3u);
-    payload |= (uint16)((uint16)reg->adcIsnsDis          << 2u);
-    payload |= (uint16)((uint16)reg->adcVbbDis           << 1u);
-    payload |= (uint16)reg->adcDis;
+    payload |= (uint16)((uint16)reg->bits.ADC_ISNS_SAMPLE_CONFIG << 6u);
+    payload |= (uint16)((uint16)reg->bits.ADC_VDS_DIS           << 5u);
+    payload |= (uint16)((uint16)reg->bits.ADC_VSNS_DIS          << 4u);
+    payload |= (uint16)((uint16)reg->bits.ADC_TSNS_DIS          << 3u);
+    payload |= (uint16)((uint16)reg->bits.ADC_ISNS_DIS          << 2u);
+    payload |= (uint16)((uint16)reg->bits.ADC_VBB_DIS           << 1u);
+    payload |= (uint16)reg->bits.ADC_DIS;
 
     return payload;
 }
@@ -102,9 +102,9 @@ D_STATIC inline uint16 Tps2hcs08_BuildPwmPayload(
 {
     uint16 payload = 0xF000u;
 
-    payload |= (uint16)((uint16)reg->pwmFreq << 9u);
-    payload |= (uint16)((uint16)reg->pwmDuty << 1u);
-    payload |= (uint16)reg->pwmEn;
+    payload |= (uint16)((uint16)reg->bits.PWM_FREQ_CHx << 9u);
+    payload |= (uint16)((uint16)reg->bits.PWM_DTY_CHx << 1u);
+    payload |= (uint16)reg->bits.PWM_EN_CHx;
 
     return payload;
 }
@@ -114,11 +114,11 @@ D_STATIC inline uint16 Tps2hcs08_BuildIlimPayload(
 {
     uint16 payload = 0u;
 
-    payload |= (uint16)((uint16)reg->capChrg        << 12u);
-    payload |= (uint16)((uint16)reg->i2tEn          << 11u);
-    payload |= (uint16)((uint16)reg->inrushDuration << 8u);
-    payload |= (uint16)((uint16)reg->inrushLimit    << 4u);
-    payload |= (uint16)reg->ilimitSet;
+    payload |= (uint16)((uint16)reg->bits.CAP_CHRG_CHx        << 12u);
+    payload |= (uint16)((uint16)reg->bits.I2T_EN_CHx          << 11u);
+    payload |= (uint16)((uint16)reg->bits.INRUSH_DURATION_CHx << 8u);
+    payload |= (uint16)((uint16)reg->bits.INRUSH_LIMIT_CHx    << 4u);
+    payload |= (uint16)reg->bits.ILIMIT_SET_CHx;
 
     return payload;
 }
@@ -128,16 +128,16 @@ D_STATIC inline uint16 Tps2hcs08_BuildChConfigPayload(
 {
     uint16 payload = 0u;
 
-    payload |= (uint16)((uint16)reg->vsnsDis     << 15u);
-    payload |= (uint16)((uint16)reg->vdsSnsDis  << 14u);
-    payload |= (uint16)((uint16)reg->isnsDis     << 13u);
-    payload |= (uint16)((uint16)reg->isnsScale   << 10u);
-    payload |= (uint16)((uint16)reg->olOnEn      << 9u);
-    payload |= (uint16)((uint16)reg->olSvbbBlank << 7u);
-    payload |= (uint16)((uint16)reg->olPuStr     << 5u);
-    payload |= (uint16)((uint16)reg->olSvbbEn    << 3u);
-    payload |= (uint16)((uint16)reg->latch        << 2u);
-    payload |= (uint16)reg->slrt;
+    payload |= (uint16)((uint16)reg->bits.VSNS_DIS_CHx     << 15u);
+    payload |= (uint16)((uint16)reg->bits.VDS_SNS_DIS_CHx  << 14u);
+    payload |= (uint16)((uint16)reg->bits.ISNS_DIS_CHx     << 13u);
+    payload |= (uint16)((uint16)reg->bits.ISNS_SCALE_CHx   << 10u);
+    payload |= (uint16)((uint16)reg->bits.OL_ON_EN_CHx      << 9u);
+    payload |= (uint16)((uint16)reg->bits.OL_SVBB_BLANK_CHx << 7u);
+    payload |= (uint16)((uint16)reg->bits.OL_PU_STR_CHx     << 5u);
+    payload |= (uint16)((uint16)reg->bits.OL_SVBB_EN_CHx    << 3u);
+    payload |= (uint16)((uint16)reg->bits.LATCH_CHx        << 2u);
+    payload |= (uint16)reg->bits.SLRT_CHx;
 
     return payload;
 }
@@ -147,11 +147,11 @@ D_STATIC inline uint16 Tps2hcs08_BuildI2tPayload(
 {
     uint16 payload = 0u;
 
-    payload |= (uint16)((uint16)reg->tcldn       << 14u);
-    payload |= (uint16)((uint16)reg->swclDlyTmr << 9u);
-    payload |= (uint16)((uint16)reg->iswcl       << 7u);
-    payload |= (uint16)((uint16)reg->i2tTrip     << 3u);
-    payload |= (uint16)reg->nomCur;
+    payload |= (uint16)((uint16)reg->bits.TCLDN_CHx       << 14u);
+    payload |= (uint16)((uint16)reg->bits.SWCL_DLY_TMR_CHx << 9u);
+    payload |= (uint16)((uint16)reg->bits.ISWCL_CHx       << 7u);
+    payload |= (uint16)((uint16)reg->bits.I2T_TRIP_CHx     << 3u);
+    payload |= (uint16)reg->bits.NOM_CUR_CHx;
 
     return payload;
 }
