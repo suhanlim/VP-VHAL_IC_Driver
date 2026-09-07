@@ -475,38 +475,6 @@ D_STATIC boolean IsValidRegisterAddress_Tps2hcs08(uint8 addr)
 }
 
 /*------------------------------------------------------------------------------
- *  ExVioDb_ValidateSdoHeader_Tps2hcs08
- *      [DEACTIVATED] SDO header interpretation deferred until integration validation.
- *
- *      Rationale:
- *      - Hardware verification required: SLEEP wake-up test will capture first
- *        transaction header to confirm bit mapping (POR bit position determines
- *        whether rxBuf[0] = GFT[15:8] or GFT[7:0]).
- *      - Fault detection already covered by periodic GLOBAL_FAULT_TYPE READ (#10).
- *      - Premature header-based logic risks false positives/negatives before mapping
- *        is verified, complicating diagnostics.
- *
- *      Datasheet-specified mapping (p.26~27, p.71~73) to implement after validation:
- *        rxBuf[0] = GLOBAL_FAULT_TYPE[15:8], latched at CS falling edge
- *        bit0 = GLOBAL_ERR_WRN       (GFT[8])
- *        bit1 = OL_SHRT_VBB_OFF_FLT  (GFT[9])
- *        bit2 = CHAN_OCP_I2T_TSD     (GFT[10])
- *        bit3 = LPM_STATUS           (GFT[11])  <- Process #14 polling target
- *        bit4 = CH1_FLT              (GFT[12])
- *        bit5 = CH2_FLT              (GFT[13])
- *        bit7:6 = RESERVED           (GFT[15:14])
- *
- *      TODO [M-19]: After hardware validation, restore this function with correct
- *      [15:8] mapping and connect to Process #14 (LPM_STATUS polling).
- *----------------------------------------------------------------------------*/
-D_STATIC void ExVioDb_ValidateSdoHeader_Tps2hcs08(uint8 devIdx, uint8 sdoHeader)
-{
-    /* DEACTIVATED - see function header comment */
-    (void)devIdx;
-    (void)sdoHeader;
-}
-
-/*------------------------------------------------------------------------------
  *  ExVioDb_WriteRegister_Tps2hcs08
  *      24bit write frame : [23]=1 [22:16]=ADDR [15:0]=DATA
  *----------------------------------------------------------------------------*/
