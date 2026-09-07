@@ -378,83 +378,80 @@ D_STATIC void  ExVioDb_EvalChFaultLog_Tps2hcs08(uint8 devIdx, uint8 chIdx);
 /*******************************************************************************
  *  SECTION 1 : SPI ACCESS
  ******************************************************************************/
-/*------------------------------------------------------------------------------
- *  ExVioDb_GetWritableShadowPtr_Tps2hcs08
- *      Maps a writable register address to the runtime shadow word.
- *      Read-only/reserved registers return NULL_PTR and are rejected before SPI.
- *      SLEEP(2h) is a one-shot command register; keep it out of this shadow map
- *      and add a dedicated EnterSleep function if SLEEP command support is added.
- *----------------------------------------------------------------------------*/
-D_STATIC uint16 *ExVioDb_GetWritableShadowPtr_Tps2hcs08(uint8 devIdx, uint8 addr)
+ /*------------------------------------------------------------------------------
+  *  ExVioDb_GetWritableShadowPtr_Tps2hcs08
+  *      Maps a writable register address to the runtime shadow word.
+  *      Read-only/reserved registers return NULL_PTR and are rejected before SPI.
+  *      SLEEP(2h) is a one-shot command register; keep it out of this shadow map
+  *      and add a dedicated EnterSleep function if SLEEP command support is added.
+  *----------------------------------------------------------------------------*/
+D_STATIC uint16* ExVioDb_GetWritableShadowPtr_Tps2hcs08(uint8 addr)
 {
-    uint16        *pShadow = NULL_PTR;
-    tTps2hcs08Ctx *pCtx;
+	uint16* pShadow = NULL_PTR;
+	tTps2hcs08Ctx* pCtx;
 
-    if (devIdx < TPS2HCS08_DEV_MAX)
-    {
-        pCtx = &exVioDbTps2hcs08Ctx[devIdx];
+	pCtx = &exVioDbTps2hcs08Ctx[0];
 
-        switch (addr)
-        {
-            case TPS2HCS08_REG_LPM:
-                pShadow = &pCtx->lpm.word;
-                break;
+	switch (addr)
+	{
+	case TPS2HCS08_REG_LPM:
+		pShadow = &pCtx->lpm.word;
+		break;
 
-            case TPS2HCS08_REG_FAULT_MASK:
-                pShadow = &pCtx->faultMask.word;
-                break;
+	case TPS2HCS08_REG_FAULT_MASK:
+		pShadow = &pCtx->faultMask.word;
+		break;
 
-            case TPS2HCS08_REG_SW_STATE:
-                pShadow = &pCtx->swState.word;
-                break;
+	case TPS2HCS08_REG_SW_STATE:
+		pShadow = &pCtx->swState.word;
+		break;
 
-            case TPS2HCS08_REG_DEV_CONFIG:
-                pShadow = &pCtx->devConfig.word;
-                break;
+	case TPS2HCS08_REG_DEV_CONFIG:
+		pShadow = &pCtx->devConfig.word;
+		break;
 
-            case TPS2HCS08_REG_ADC_CONFIG:
-                pShadow = &pCtx->adcConfig.word;
-                break;
+	case TPS2HCS08_REG_ADC_CONFIG:
+		pShadow = &pCtx->adcConfig.word;
+		break;
 
-            case TPS2HCS08_REG_PWM_CH1:
-                pShadow = &pCtx->pwmCh[TPS2HCS08_CH1].word;
-                break;
+	case TPS2HCS08_REG_PWM_CH1:
+		pShadow = &pCtx->pwmCh[TPS2HCS08_CH1].word;
+		break;
 
-            case TPS2HCS08_REG_PWM_CH2:
-                pShadow = &pCtx->pwmCh[TPS2HCS08_CH2].word;
-                break;
+	case TPS2HCS08_REG_PWM_CH2:
+		pShadow = &pCtx->pwmCh[TPS2HCS08_CH2].word;
+		break;
 
-            case TPS2HCS08_REG_ILIM_CONFIG_CH1:
-                pShadow = &pCtx->ilimCfgCh[TPS2HCS08_CH1].word;
-                break;
+	case TPS2HCS08_REG_ILIM_CONFIG_CH1:
+		pShadow = &pCtx->ilimCfgCh[TPS2HCS08_CH1].word;
+		break;
 
-            case TPS2HCS08_REG_ILIM_CONFIG_CH2:
-                pShadow = &pCtx->ilimCfgCh[TPS2HCS08_CH2].word;
-                break;
+	case TPS2HCS08_REG_ILIM_CONFIG_CH2:
+		pShadow = &pCtx->ilimCfgCh[TPS2HCS08_CH2].word;
+		break;
 
-            case TPS2HCS08_REG_CH1_CONFIG:
-                pShadow = &pCtx->chConfig[TPS2HCS08_CH1].word;
-                break;
+	case TPS2HCS08_REG_CH1_CONFIG:
+		pShadow = &pCtx->chConfig[TPS2HCS08_CH1].word;
+		break;
 
-            case TPS2HCS08_REG_CH2_CONFIG:
-                pShadow = &pCtx->chConfig[TPS2HCS08_CH2].word;
-                break;
+	case TPS2HCS08_REG_CH2_CONFIG:
+		pShadow = &pCtx->chConfig[TPS2HCS08_CH2].word;
+		break;
 
-            case TPS2HCS08_REG_I2T_CONFIG_CH1:
-                pShadow = &pCtx->i2tCfgCh[TPS2HCS08_CH1].word;
-                break;
+	case TPS2HCS08_REG_I2T_CONFIG_CH1:
+		pShadow = &pCtx->i2tCfgCh[TPS2HCS08_CH1].word;
+		break;
 
-            case TPS2HCS08_REG_I2T_CONFIG_CH2:
-                pShadow = &pCtx->i2tCfgCh[TPS2HCS08_CH2].word;
-                break;
+	case TPS2HCS08_REG_I2T_CONFIG_CH2:
+		pShadow = &pCtx->i2tCfgCh[TPS2HCS08_CH2].word;
+		break;
 
-            default:
-                /* read-only, reserved, or one-shot command register */
-                break;
-        }
-    }
+	default:
+		/* read-only, reserved, or one-shot command register */
+		break;
+	}
 
-    return pShadow;
+	return pShadow;
 }
 
 /*------------------------------------------------------------------------------
@@ -542,7 +539,69 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 seqid, uint8 addr,
 
 		if (ExVioDb_Tps2hcs08_Port_SpiTransfer(seqid, txBuf, rxBuf, TPS2HCS08_SPI_FRAME_LEN) == E_OK)
 		{
-			*pShadow = payload;
+
+            for (int i = 0; i < TPS2HCS08_DEV_MAX; i++)
+            {
+                switch (addr)
+                {
+                    case TPS2HCS08_REG_LPM:
+                        exVioDbTps2hcs08Ctx[i].lpm.word = payload;
+                    break;
+
+                case TPS2HCS08_REG_FAULT_MASK:
+                        exVioDbTps2hcs08Ctx[i].faultMask.word = payload;
+                    break;
+
+                case TPS2HCS08_REG_SW_STATE:
+                        exVioDbTps2hcs08Ctx[i].swState.word = payload;
+                    break;
+
+                case TPS2HCS08_REG_DEV_CONFIG:
+                        exVioDbTps2hcs08Ctx[i].devConfig.word = payload;
+                    break;
+
+                case TPS2HCS08_REG_ADC_CONFIG:
+                        exVioDbTps2hcs08Ctx[i].adcConfig.word = payload;
+                    break;
+
+                case TPS2HCS08_REG_PWM_CH1:
+                        exVioDbTps2hcs08Ctx[i].pwmCh[TPS2HCS08_CH1].word = payload;
+                    break;
+
+                case TPS2HCS08_REG_PWM_CH2:
+                        exVioDbTps2hcs08Ctx[i].pwmCh[TPS2HCS08_CH2].word = payload;
+                    break;
+
+                case TPS2HCS08_REG_ILIM_CONFIG_CH1:
+                        exVioDbTps2hcs08Ctx[i].ilimCfgCh[TPS2HCS08_CH1].word = payload;
+                    break;
+
+                case TPS2HCS08_REG_ILIM_CONFIG_CH2:
+                        exVioDbTps2hcs08Ctx[i].ilimCfgCh[TPS2HCS08_CH2].word = payload;
+                    break;
+
+                case TPS2HCS08_REG_CH1_CONFIG:
+                        exVioDbTps2hcs08Ctx[i].chConfig[TPS2HCS08_CH1].word = payload;
+                    break;
+
+                case TPS2HCS08_REG_CH2_CONFIG:
+                        exVioDbTps2hcs08Ctx[i].chConfig[TPS2HCS08_CH2].word = payload;
+                    break;
+
+                case TPS2HCS08_REG_I2T_CONFIG_CH1:
+                        exVioDbTps2hcs08Ctx[i].i2tCfgCh[TPS2HCS08_CH1].word = payload;
+                    break;
+
+                case TPS2HCS08_REG_I2T_CONFIG_CH2:
+                        exVioDbTps2hcs08Ctx[i].i2tCfgCh[TPS2HCS08_CH2].word = payload;
+                    break;
+
+                default:
+                    /* read-only, reserved, or one-shot command register */
+                    break;
+                }
+            }
+
 			retVal = E_OK;
 		}
 		else
