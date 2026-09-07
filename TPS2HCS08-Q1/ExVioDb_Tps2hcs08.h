@@ -666,6 +666,7 @@ typedef struct
     tTps2hcs08AdcResultCh       adcResultChV[TPS2HCS08_CH_MAX];
     tTps2hcs08AdcResultCh       adcResultChVDS[TPS2HCS08_CH_MAX];
     tTps2hcs08I2tConfigCh       i2tCfgCh[TPS2HCS08_CH_MAX];
+    
 #pragma region TOOD Check
     /* --- DB parsing result ----------------------------------------------- */
     tTps2hcs08ChCfg             chCfg[TPS2HCS08_CH_MAX];
@@ -702,9 +703,20 @@ typedef struct
     uint8 deviceCount;
 } tTps2hcs08SpiRuntime;
 
+// if IO DB 초기값 상태를 저장해서 활용할 필요가 있다면 사용
+typedef struct
+{
+    tTps2hcs08DevConfig         devConfig;
+    tTps2hcs08PwmCh             pwmCh[TPS2HCS08_CH_MAX];
+    tTps2hcs08IlimConfigCh      ilimCfgCh[TPS2HCS08_CH_MAX];
+    tTps2hcs08ChConfig          chConfig[TPS2HCS08_CH_MAX];
+    tTps2hcs08I2tConfigCh       i2tCfgCh[TPS2HCS08_CH_MAX];
+} tTps2hcs08InitConfigByIoDb;
+
 /*==============================================================================
  * 12. PUBLIC API
  *============================================================================*/
+extern void  ExVioDb_InitRegValue_LoadDb(void);
 extern void  ExVioDb_InitRegValue_Tps2hcs08(void);
 extern void  ExVioDb_SetupScnTps2hcs08Reg(void);
 extern void  ExVioDb_RunScnTps2hcs08Reg(void);

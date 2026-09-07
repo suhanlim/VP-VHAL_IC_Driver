@@ -140,6 +140,10 @@ FUNC(void, SWC_EXVIODB_CODE) RE_Swc_ExVioDb_Task_10ms(void)
 {
     switch (exVioDbStateSeq)
     {
+        case EXVIODB_STATE_LOAD_DB:
+            ExVioDb_LoadDb();
+            break;
+
         case EXVIODB_STATE_DISABLE:
             break;
 
@@ -247,6 +251,11 @@ D_STATIC void ExVioDb_SetupScnSupervision(void)
 
         exVioDbStateSeq = EXVIODB_STATE_ERROR;
     }
+}
+
+D_STATIC void ExVioDb_LoadDb(void) 
+{
+    (void)ExVioDb_InitRegValue_LoadDb();
 }
 
 /*------------------------------------------------------------------------------

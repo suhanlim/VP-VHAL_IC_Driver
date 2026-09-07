@@ -677,6 +677,50 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 seqid, uint8 addr, 
  *      Sets the shadow register of every device to the project default value.
  *      ( "초기 설정" column of the register specification )
  *----------------------------------------------------------------------------*/
+/* IO DB 로드 후 세팅되는 Tps2hcs08 IC 칩의 레지스터 메모리 값 세팅 */
+/* void ExVioDb_InitRegValue_Tps2hcs08(void) 호출 이후 호출 할 것 */
+void ExVioDb_InitRegValue_LoadDb(void) 
+{
+    uint8 devIdx;
+    uint8 chIdx;
+
+    for (devIdx = 0u; devIdx < TPS2HCS08_DEV_MAX; devIdx++)
+    {
+        tTps2hcs08Ctx *pCtx = &exVioDbTps2hcs08Ctx[devIdx];
+
+        pCtx->devConfig.bits.PARALLEL_12          = 0u;   /* 추후 IO DB 결정시 수정 필요 from signal DB    */
+
+        for (chIdx = 0u; chIdx < TPS2HCS08_CH_MAX; chIdx++)
+        {
+            /* --- Eh PWM_CHx ---------------------------------------------- */
+            pCtx->pwmCh[chIdx].bits.PWM_FREQ_CHx  = 0u;  /* 추후 IO DB 결정시 수정 필요 from signal DB    */
+            pCtx->pwmCh[chIdx].bits.PWM_DTY_CHx   = 0u;  /* 추후 IO DB 결정시 수정 필요 from signal DB    */
+            pCtx->pwmCh[chIdx].bits.PWM_EN_CHx    = 0u;  /* 추후 IO DB 결정시 수정 필요 from signal DB    */
+
+            /* --- Fh ILIM_CONFIG_CHx -------------------------------------- */
+            /* M-04: I2T_EN initially disabled for safety.
+             * I2T_TRIP=0h + I2T_EN=1 → minimum 8.8A²s active (datasheet p.93)
+             * Could cause unintended trip during init before DB parsing.
+             * DB parsing will enable I2T_EN if required.
+             */
+            pCtx->ilimCfgCh[chIdx].bits.CAP_CHRG_CHx        = TPS2HCS08_CAP_CHRG_NONE;
+            pCtx->ilimCfgCh[chIdx].bits.INRUSH_DURATION_CHx = 0u;
+            pCtx->ilimCfgCh[chIdx].bits.INRUSH_LIMIT_CHx    = 0x8u;  /* 40A    */
+            pCtx->ilimCfgCh[chIdx].bits.ILIMIT_SET_CHx      = 0x8u;  /* 40A    */
+
+            /* --- 10h CHx_CONFIG ------------------------------------------ */
+            pCtx->chConfig[chIdx].bits.VSNS_DIS_CHx         = 1u;  /* from DB     */
+            pCtx->chConfig[chIdx].bits.SLRT_CHx             = 1u;
+
+            /* --- 15h I2T_CONFIG_CHx -------------------------------------- */
+            pCtx->i2tCfgCh[chIdx].bits.ISWCL_CHx        = 0u;
+            pCtx->i2tCfgCh[chIdx].bits.I2T_TRIP_CHx     = 0u;
+            pCtx->i2tCfgCh[chIdx].bits.NOM_CUR_CHx      = 0u;
+
+        }
+    }
+}
+
 void ExVioDb_InitRegValue_Tps2hcs08(void)
 {
     uint8 devIdx;
@@ -686,6 +730,10 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
     {
         tTps2hcs08Ctx *pCtx = &exVioDbTps2hcs08Ctx[devIdx];
 
+        pCtx->crcConfig.word                      = 0xFFFEu;
+        pCtx->sleep.word                          = 0xFFFEu;
+        pCtx->globalFault.word                    = 0x0147u;
+        
         /* --- 5h FAULT_MASK : initial diagnostic only -> mask after setup --- */
         /* EDIT::Init 이슈 pdf 74p 기준 pCtx->faultMask.word = 0xFF80u 수정      */
         pCtx->faultMask.word                      = 0xFF80u;
@@ -698,6 +746,8 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
         /* --- 7h SW_STATE : all output OFF --------------------------------- */
         /* EDIT::Init 이슈 pdf 75p 기준 pCtx->swState.word = 0xFFFCu 수정      */
         pCtx->swState.word                        = 0xFFFCu;
+        pCtx->swState.bits.CH1_ON                 = 0u;
+        pCtx->swState.bits.CH2_ON                 = 0u;
 
         /* --- 9h DEV_CONFIG ------------------------------------------------ */
         /* EDIT::Init 이슈 pdf 76p 기준 pCtx->devConfig.word = 0xF800u 수정      */
@@ -706,7 +756,7 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
         pCtx->devConfig.bits.CH1_LH_IN            = TPS2HCS08_LH_IN_KEEP_CHx_ON;
         pCtx->devConfig.bits.PWM_SHIFT_DIS        = 0u;
         pCtx->devConfig.bits.AUTO_LPM_ENTRY       = 0u;   /* process #12       */
-        pCtx->devConfig.bits.PARALLEL_12          = 0u;   /* from signal DB    */
+        pCtx->devConfig.bits.PARALLEL_12          = 0u;   /* 추후 IO DB 결정시 수정 필요 from signal DB    */
         pCtx->devConfig.bits.WD_EN                = 1u;
         pCtx->devConfig.bits.WD_TO                = TPS2HCS08_WD_TO_400MS;
         pCtx->devConfig.bits.FLT_LTCH_DIS         = 0u;   /* latched fault     */
@@ -716,6 +766,8 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
         pCtx->adcConfig.bits.ADC_VSNS_DIS         = 0u;   /* VSNS enable       */
         pCtx->adcConfig.bits.ADC_ISNS_DIS         = 0u;   /* ISNS enable(I2T)  */
         pCtx->adcConfig.bits.ADC_DIS              = 0u;
+
+        pCtx->adcResultVbb.word                   = 0xF800u;
 
         /* M-03: VBB measurement configuration.
          * Reset value has ADC_VBB_DIS=1 (disabled).
@@ -735,25 +787,25 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
 
         for (chIdx = 0u; chIdx < TPS2HCS08_CH_MAX; chIdx++)
         {
+            pCtx->fltStatCh[chIdx].word           = 0xE000u;
+            
             /* --- Eh PWM_CHx ---------------------------------------------- */
             /* EDIT::Init 이슈 pdf 83p 기준 pCtx->pwmCh[chIdx].word = 0xF000u 수정 */
             pCtx->pwmCh[chIdx].word               = 0xF000u;
+            pCtx->pwmCh[chIdx].bits.PWM_FREQ_CHx  = 0u;  /* 추후 IO DB 결정시 수정 필요 from signal DB    */
 
             /* --- Fh ILIM_CONFIG_CHx ( reset = 0088h ) -------------------- */
-            pCtx->ilimCfgCh[chIdx].word           = 0x0000u;
+            pCtx->ilimCfgCh[chIdx].word           = 0x0088u;
             pCtx->ilimCfgCh[chIdx].bits.CAP_CHRG_CHx        = TPS2HCS08_CAP_CHRG_NONE;
             /* M-04: I2T_EN initially disabled for safety.
              * I2T_TRIP=0h + I2T_EN=1 → minimum 8.8A²s active (datasheet p.93)
              * Could cause unintended trip during init before DB parsing.
              * DB parsing will enable I2T_EN if required.
              */
-            pCtx->ilimCfgCh[chIdx].bits.I2T_EN_CHx          = 0u;  /* Disable until DB parsed */
-            pCtx->ilimCfgCh[chIdx].bits.INRUSH_DURATION_CHx = 0u;
-            pCtx->ilimCfgCh[chIdx].bits.INRUSH_LIMIT_CHx    = 0x8u;  /* 40A    */
-            pCtx->ilimCfgCh[chIdx].bits.ILIMIT_SET_CHx      = 0x8u;  /* 40A    */
+            pCtx->ilimCfgCh[chIdx].bits.I2T_EN_CHx          = 1u;  /* Disable until DB parsed */
 
             /* --- 10h CHx_CONFIG ------------------------------------------ */
-            pCtx->chConfig[chIdx].word            = 0x0000u;
+            pCtx->chConfig[chIdx].word            = 0xC002u;
             pCtx->chConfig[chIdx].bits.VSNS_DIS_CHx      = 1u;  /* from DB     */
             pCtx->chConfig[chIdx].bits.VDS_SNS_DIS_CHx   = 1u;
             pCtx->chConfig[chIdx].bits.ISNS_DIS_CHx      = 0u;
@@ -764,6 +816,11 @@ void ExVioDb_InitRegValue_Tps2hcs08(void)
             pCtx->chConfig[chIdx].bits.OL_SVBB_EN_CHx    = TPS2HCS08_OL_SVBB_PULLUP;
             pCtx->chConfig[chIdx].bits.LATCH_CHx         = 0u;  /* auto retry  */
             pCtx->chConfig[chIdx].bits.SLRT_CHx          = 0x2u;/* 0.45V/us    */
+
+            pCtx->adcResultChI[chIdx].word        = 0xF000u;
+            pCtx->adcResultChT[chIdx].word        = 0xF800u;
+            pCtx->adcResultChV[chIdx].word        = 0xF800u;
+            pCtx->adcResultChVDS[chIdx].word      = 0xF800u;
 
             /* --- 15h I2T_CONFIG_CHx -------------------------------------- */
             pCtx->i2tCfgCh[chIdx].word            = 0x0000u;
