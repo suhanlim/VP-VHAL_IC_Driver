@@ -727,25 +727,6 @@ extern Std_ReturnType ExVioDb_SetChannelOutput_Tps2hcs08(uint8 devIdx,
                                                          uint8 chIdx,
                                                          boolean onOff);
 
-/* Phase 3: Mode-based SetPort/GetPort interface for GetPort/SetPort compatibility.
- * Provides unified interface similar to other IC drivers (DRV8912, MPQ6620, VNFD1248).
- * Mode values:
- *   0 = Output state (ON/OFF)
- *   1 = PWM duty cycle (0~255)
- *   2 = Event status / Event clear
- *   3 = Fault status / Fault clear
- *   4 = PWM frequency selection
- *   5 = Current measurement (GetPort only)
- */
-extern Std_ReturnType ExVioDb_SetPortTps2hcs08(uint8 devIdx,
-                                                uint8 chIdx,
-                                                uint16 value,
-                                                uint8 mode);
-extern Std_ReturnType ExVioDb_GetPortTps2hcs08(uint8 devIdx,
-                                                uint8 chIdx,
-                                                uint16 *value,
-                                                uint8 mode);
-
 /* sleep / wake-up request interface from the vehicle power mode manager       */
 extern void ExVioDb_ReqSleep_Tps2hcs08(boolean req);
 extern void ExVioDb_ReqWakeUp_Tps2hcs08(void);
