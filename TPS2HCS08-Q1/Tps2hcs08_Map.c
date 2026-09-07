@@ -1,7 +1,7 @@
-#include "Tps2hcs08_Map.h"
-
 #include <stdio.h>
 #include <string.h>
+
+#include "Tps2hcs08_Map.h"
 
 #define TPS2HCS08_MOCK_SEQID                (0u)
 
