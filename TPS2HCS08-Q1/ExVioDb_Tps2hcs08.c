@@ -387,7 +387,7 @@ D_STATIC void  ExVioDb_EvalChFaultLog_Tps2hcs08(uint8 devIdx, uint8 chIdx);
  *----------------------------------------------------------------------------*/
 D_STATIC uint16 *ExVioDb_GetWritableShadowPtr_Tps2hcs08(uint8 devIdx, uint8 addr)
 {
-    uint16         *pShadow = NULL_PTR;
+    uint16        *pShadow = NULL_PTR;
     tTps2hcs08Ctx *pCtx;
 
     if (devIdx < TPS2HCS08_DEV_MAX)
@@ -540,8 +540,7 @@ D_STATIC Std_ReturnType ExVioDb_WriteRegister_Tps2hcs08(uint8 seqid, uint8 addr,
 		    txBuf[i+2] = (uint8)(payload & 0x00FFu);
         }
 
-		if (ExVioDb_Tps2hcs08_Port_SpiTransfer(seqid, txBuf, rxBuf,
-			TPS2HCS08_SPI_FRAME_LEN) == E_OK)
+		if (ExVioDb_Tps2hcs08_Port_SpiTransfer(seqid, txBuf, rxBuf, TPS2HCS08_SPI_FRAME_LEN) == E_OK)
 		{
 			*pShadow = payload;
 			retVal = E_OK;
@@ -594,27 +593,11 @@ D_STATIC Std_ReturnType ExVioDb_ReadRegister_Tps2hcs08(uint8 seqid, uint8 addr, 
 			txBuf[2] = 0x00u;
 		}
 
-        /* 1st frame : send the read command                                  */
-        if (ExVioDb_Tps2hcs08_Port_SpiTransfer(seqid, txBuf, rxBuf,
-                                               TPS2HCS08_SPI_FRAME_LEN) == E_OK)
+        /* 4개의 데이지 체인 구조 모두 동일한 동작결과를 기대함으로 1개의 프레임 결과만 반환                                 */
+        if (ExVioDb_Tps2hcs08_Port_SpiTransfer(seqid, txBuf, rxBuf, TPS2HCS08_SPI_FRAME_LEN) == E_OK)
         {
-            /* Phase 2: Issue #3 - Validate SDO header from 1st frame */
-            /* [DEACTIVATED] See M-19: Restore after hardware validation */
-            /* ExVioDb_ValidateSdoHeader_Tps2hcs08(seqid, rxBuf[0]); */
-
-            /* 2nd frame : dummy read, SDO carries the data of the 1st frame  */
-            if (ExVioDb_Tps2hcs08_Port_SpiTransfer(seqid, txBuf, rxBuf,
-                                                   TPS2HCS08_SPI_FRAME_LEN) == E_OK)
-            {
-                exVioDbTps2hcs08Ctx[seqid].sdoHeader = rxBuf[0];
-
-                /* Phase 2: Issue #3 - Validate SDO header from 2nd frame */
-                /* [DEACTIVATED] See M-19: Restore after hardware validation */
-                /* ExVioDb_ValidateSdoHeader_Tps2hcs08(seqid, rxBuf[0]); */
-
-                *readValue = (uint16)(((uint16)rxBuf[1] << 8u) | (uint16)rxBuf[2]);
-                retVal = E_OK;
-            }
+           *readValue = (uint16)(((uint16)rxBuf[1] << 8u) | (uint16)rxBuf[2]);
+            retVal = E_OK;
         }
 
         if (retVal != E_OK)
